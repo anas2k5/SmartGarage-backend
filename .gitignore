@@ -25,10 +25,10 @@ target/
 
 ### NetBeans ###
 /nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
 build/
 !**/src/main/**/build/
 !**/src/test/**/build/
@@ -40,9 +40,7 @@ build/
 # SPRING / SECRETS
 # ========================
 
-# DO NOT COMMIT REAL PROPERTIES
-src/main/resources/application.properties
-
+# DO NOT COMMIT REAL SECRETS
 # Environment files (real secrets)
 .env
 .env.local
