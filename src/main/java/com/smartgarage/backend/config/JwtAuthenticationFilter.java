@@ -1,14 +1,12 @@
 package com.smartgarage.backend.config;
 
+import com.smartgarage.backend.security.CustomUserDetails;
+import com.smartgarage.backend.config.CustomUserDetailsService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import jakarta.servlet.http.*;
+import org.slf4j.*;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.util.StringUtils;
@@ -17,7 +15,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-    private final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtUtils jwtUtils;
     private final CustomUserDetailsService userDetailsService;
@@ -27,42 +26,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.userDetailsService = uds;
     }
 
+    private String resolveToken(HttpServletRequest req) {
+        String h = req.getHeader("Authorization");
+        if (StringUtils.hasText(h) && h.startsWith("Bearer ")) return h.substring(7);
+        return null;
+    }
+
     @Override
-    protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain fc)
+    protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
             throws ServletException, IOException {
         try {
-            String header = req.getHeader("Authorization");
-            log.debug("Incoming request {} {} AuthorizationHeader={}", req.getMethod(), req.getRequestURI(), header == null ? "null" : (header.length() > 30 ? header.substring(0,30) + "..." : header));
+            String token = resolveToken(req);
+            if (token != null && jwtUtils.validateToken(token)) {
+                String username = jwtUtils.getUsernameFromToken(token);
+                var userDetails = (CustomUserDetails) userDetailsService.loadUserByUsername(username);
 
-            String token = (StringUtils.hasText(header) && header.startsWith("Bearer ")) ? header.substring(7) : null;
-            if (token != null) {
-                boolean valid = jwtUtils.validateToken(token);
-                log.debug("JWT present — validateToken = {}", valid);
-                if (valid) {
-                    String username = jwtUtils.getUsernameFromToken(token);
-                    log.debug("Token username: {}", username);
-
-                    UserDetails ud = userDetailsService.loadUserByUsername(username);
-                    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(ud, null, ud.getAuthorities());
-                    auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(req));
-                    SecurityContextHolder.getContext().setAuthentication(auth);
-
-                    Authentication after = SecurityContextHolder.getContext().getAuthentication();
-                    log.debug("Authentication set in SecurityContext: principal={} authenticated={} authorities={}",
-                            after == null ? "null" : after.getName(),
-                            after == null ? "false" : after.isAuthenticated(),
-                            after == null ? "null" : after.getAuthorities());
-                } else {
-                    log.debug("JWT is invalid or expired");
-                }
-            } else {
-                log.debug("No Bearer token found in Authorization header");
+                var auth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(req));
+                SecurityContextHolder.getContext().setAuthentication(auth);
+                log.debug("Authenticated '{}' via JWT", username);
             }
         } catch (Exception ex) {
-            log.error("Exception in JwtAuthenticationFilter doFilterInternal", ex);
-            // do not stop filter chain; allow downstream security to handle unauthorized request
+            log.error("Error in JwtAuthenticationFilter", ex);
         }
-
-        fc.doFilter(req, res);
+        chain.doFilter(req, res);
     }
 }

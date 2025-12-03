@@ -2,6 +2,7 @@ package com.smartgarage.backend.config;
 
 import com.smartgarage.backend.model.User;
 import com.smartgarage.backend.repository.UserRepository;
+import com.smartgarage.backend.security.CustomUserDetails;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
 
@@ -9,20 +10,15 @@ import org.springframework.stereotype.Service;
 public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
+
     public CustomUserDetailsService(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-
-        // convert User -> UserDetails
-        return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getEmail())
-                .password(user.getPassword())
-                .roles(user.getRole())   // assuming role is a single string without "ROLE_" prefix
-                .build();
+        User u = userRepository.findByEmail(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+        return new CustomUserDetails(u.getId(), u.getEmail(), u.getPassword(), u.getRole());
     }
 }

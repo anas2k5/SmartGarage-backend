@@ -82,6 +82,7 @@
             <version>3.24.2</version>
             <scope>test</scope>
         </dependency>
+
         <!-- JSON Web Token (jjwt) -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
@@ -101,27 +102,11 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- JUnit 5 -->
+        <!-- JUnit 5 (explicit if you prefer) -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>5.10.0</version>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- Mockito for JUnit 5 -->
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-junit-jupiter</artifactId>
-            <version>5.5.0</version>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- AssertJ (optional, but your tests expect it) -->
-        <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
-            <version>3.24.2</version>
             <scope>test</scope>
         </dependency>
 

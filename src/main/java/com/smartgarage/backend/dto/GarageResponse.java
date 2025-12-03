@@ -1,32 +1,32 @@
-package com.smartgarage.backend.model;
+package com.smartgarage.backend.dto;
 
-import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 
-@Entity
-@Table(name = "garages")
-public class Garage {
+/**
+ * DTO returned to clients for garage data.
+ * Notice it does NOT include owner sensitive data (only ownerId).
+ */
+public class GarageResponse {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private String name;
-
     private String address;
-
     private String phone;
+    private boolean active;
+    private Long ownerId;
+    private OffsetDateTime createdAt;
 
-    private boolean active = true;
+    public GarageResponse() {}
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "owner_id", nullable = false)
-    private User owner;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt = OffsetDateTime.now();
-
-    public Garage() {}
+    public GarageResponse(Long id, String name, String address, String phone, boolean active, Long ownerId, OffsetDateTime createdAt) {
+        this.id = id;
+        this.name = name;
+        this.address = address;
+        this.phone = phone;
+        this.active = active;
+        this.ownerId = ownerId;
+        this.createdAt = createdAt;
+    }
 
     // getters & setters
     public Long getId() { return id; }
@@ -44,8 +44,8 @@ public class Garage {
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
 
-    public User getOwner() { return owner; }
-    public void setOwner(User owner) { this.owner = owner; }
+    public Long getOwnerId() { return ownerId; }
+    public void setOwnerId(Long ownerId) { this.ownerId = ownerId; }
 
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
