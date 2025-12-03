@@ -1,19 +1,22 @@
 package com.smartgarage.backend.config;
 
-import com.smartgarage.backend.config.JwtAuthenticationFilter;
-import com.smartgarage.backend.config.JwtUtils;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.http.HttpMethod;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 @EnableMethodSecurity
@@ -37,42 +40,53 @@ public class SecurityConfig {
         JwtAuthenticationFilter jwtFilter = new JwtAuthenticationFilter(jwtUtils, userDetailsService);
 
         http
-                // dev-friendly: disable CSRF for stateless JWT usage
                 .csrf(csrf -> csrf.disable())
+                .cors(cors -> {})   // 🔥 enable CORS
 
-                // stateless session (we use JWT)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                // allow H2 console frames (dev only)
                 .headers(headers -> headers.frameOptions(frame -> frame.disable()))
 
-                // authorization rules
                 .authorizeHttpRequests(auth -> auth
-                        // allow swagger and api docs (optional - helpful during development)
+                        // Swagger
                         .requestMatchers(
-                                "/v2/api-docs", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-resources/**", "/swagger-ui.html",
-                                "/webjars/**").permitAll()
+                                "/v2/api-docs", "/v3/api-docs/**", "/swagger-ui/**",
+                                "/swagger-resources/**", "/swagger-ui.html", "/webjars/**"
+                        ).permitAll()
 
-                        // allow H2 console (dev)
+                        // H2 console
                         .requestMatchers("/h2-console/**").permitAll()
 
-                        // public auth endpoints
-                        .requestMatchers("/api/auth/**", "/api/users/register").permitAll()
+                        // Auth APIs
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/users/register").permitAll()
 
-                        // allow preflight CORS requests
+                        // CORS preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // booking endpoints require a valid authenticated user (explicit)
-                        .requestMatchers("/api/bookings/**", "/api/booking/**").authenticated()
+                        // Require authentication for booking operations
+                        .requestMatchers("/api/bookings/**").authenticated()
+                        .requestMatchers("/api/booking/**").authenticated()
 
-                        // everything else requires authentication by default
                         .anyRequest().authenticated()
                 )
 
-                // add the JWT filter before UsernamePasswordAuthenticationFilter
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    // CORS configuration
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("*"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 
     @Bean
