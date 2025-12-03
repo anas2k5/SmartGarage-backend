@@ -1,12 +1,14 @@
 package com.smartgarage.backend.service;
-import com.smartgarage.backend.model.Vehicle;
-import com.smartgarage.backend.repository.VehicleRepository;
-import org.springframework.stereotype.Service;
+
+import com.smartgarage.backend.dto.VehicleRequest;
+import com.smartgarage.backend.dto.VehicleResponse;
+
 import java.util.List;
-@Service
-public class VehicleService {
-    private final VehicleRepository repo;
-    public VehicleService(VehicleRepository repo){ this.repo = repo; }
-    public Vehicle save(Vehicle v){ return repo.save(v); }
-    public List<Vehicle> byOwner(Long id){ return repo.findByOwnerId(id); }
+
+public interface VehicleService {
+    VehicleResponse create(Long ownerId, VehicleRequest req);
+    List<VehicleResponse> listByOwner(Long ownerId);
+    VehicleResponse getById(Long id, Long requesterId); // requesterId used for ownership check
+    VehicleResponse update(Long id, Long ownerId, VehicleRequest req);
+    void delete(Long id, Long ownerId);
 }
