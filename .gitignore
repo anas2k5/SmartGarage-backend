@@ -1,15 +1,10 @@
-# (paste the .gitignore content from the previous block here)
 HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-# ========================
-# IDE FILES
-# ========================
-
-### STS ###
+### IDE FILES ###
 .apt_generated
 .classpath
 .factorypath
@@ -17,15 +12,13 @@ target/
 .settings
 .springBeans
 .sts4-cache
-
-### IntelliJ IDEA ###
 .idea/
 *.iws
 *.iml
 *.ipr
+.vscode/
 
-### NetBeans ###
-/nbproject/private/
+### BUILD FILES ###
 nbbuild/
 dist/
 nbdist/
@@ -34,31 +27,19 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### VS Code ###
-.vscode/
-
-# ========================
-# SPRING / SECRETS
-# ========================
-
-# DO NOT COMMIT REAL SECRETS
+### SPRING / SECRETS ###
 .env
 .env.local
 .env.*.local
-
-# Spring Boot config override
-src/main/resources/application-dev.properties
 application-dev.properties
+application.properties
 
-# Keystores / certificates
 *.jks
 *.keystore
 *.pem
 *.p12
 
-# ========================
-# LOGS / TEMP
-# ========================
+### LOGS / TEMP ###
 *.log
 *.tmp
 *.cache
