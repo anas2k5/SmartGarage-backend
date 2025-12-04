@@ -11,4 +11,7 @@ public interface BookingService {
     List<Booking> byCustomer(Long customerId);
     List<Booking> byGarage(Long garageId);
     Optional<Booking> byId(Long id);
+
+    // New method: update booking status (owner or admin)
+    Booking updateBookingStatus(Long bookingId, String newStatus, Long requesterId, String requesterRole);
 }

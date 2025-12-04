@@ -2,6 +2,7 @@ package com.smartgarage.backend.controller;
 
 import com.smartgarage.backend.dto.BookingRequest;
 import com.smartgarage.backend.dto.BookingResponse;
+import com.smartgarage.backend.dto.UpdateBookingStatusRequest;
 import com.smartgarage.backend.mapper.BookingMapper;
 import com.smartgarage.backend.model.Booking;
 import com.smartgarage.backend.model.User;
@@ -10,6 +11,7 @@ import com.smartgarage.backend.service.BookingService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
@@ -105,5 +107,36 @@ public class BookingController {
 
         // (Optional) You can add access check here to ensure only customer/garage owner can view
         return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * Owner/Admin only: Update booking status.
+     * Body example: { "status": "ACCEPTED" }
+     */
+    @PutMapping("/{id}/status")
+    public ResponseEntity<?> updateStatus(@PathVariable("id") Long bookingId,
+                                          @Valid @RequestBody UpdateBookingStatusRequest req,
+                                          Principal principal) {
+        if (principal == null || principal.getName() == null) {
+            return ResponseEntity.status(401).body("Unauthenticated");
+        }
+
+        Optional<User> maybeUser = userRepository.findByEmail(principal.getName());
+        if (maybeUser.isEmpty()) {
+            return ResponseEntity.status(401).body("Authenticated user not found");
+        }
+        User actor = maybeUser.get();
+
+        try {
+            Booking updated = bookingService.updateBookingStatus(bookingId, req.getStatus(), actor.getId(), actor.getRole());
+            BookingResponse resp = BookingMapper.toResponse(updated);
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(ex.getMessage());
+        } catch (SecurityException | com.smartgarage.backend.exception.ForbiddenException ex) {
+            return ResponseEntity.status(403).body(ex.getMessage());
+        } catch (Exception ex) {
+            return ResponseEntity.status(500).body("Failed to update booking status: " + ex.getMessage());
+        }
     }
 }

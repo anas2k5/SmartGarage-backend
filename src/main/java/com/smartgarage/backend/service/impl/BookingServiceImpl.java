@@ -103,4 +103,58 @@ public class BookingServiceImpl implements BookingService {
     public Optional<Booking> byId(Long id) {
         return bookingRepository.findById(id);
     }
+
+    /**
+     * Update booking status. Only the garage owner or ADMIN can update.
+     *
+     * @param bookingId     id of booking to update
+     * @param newStatus     target status string (must be enum name)
+     * @param requesterId   id of authenticated user making the request
+     * @param requesterRole role string of requester (e.g., "OWNER", "ADMIN")
+     * @return updated booking
+     */
+    @Override
+    public Booking updateBookingStatus(Long bookingId, String newStatus, Long requesterId, String requesterRole) {
+        if (newStatus == null || newStatus.isBlank()) {
+            throw new IllegalArgumentException("status is required");
+        }
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+        // Ensure garage & owner exist
+        Garage garage = booking.getGarage();
+        if (garage == null || garage.getOwner() == null) {
+            throw new IllegalArgumentException("Booking does not have a valid garage/owner");
+        }
+
+        Long ownerId = garage.getOwner().getId();
+
+        boolean isOwner = ownerId != null && ownerId.equals(requesterId);
+        boolean isAdmin = requesterRole != null && requesterRole.equalsIgnoreCase("ADMIN");
+
+        if (!isOwner && !isAdmin) {
+            throw new ForbiddenException("Only the garage owner or admin can change booking status");
+        }
+
+        BookingStatus statusEnum;
+        try {
+            statusEnum = BookingStatus.valueOf(newStatus);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid status value: " + newStatus);
+        }
+
+        // Optional: simple transition guard (prevent changes once COMPLETED)
+        BookingStatus old = booking.getStatus();
+        if (old == BookingStatus.COMPLETED && statusEnum != BookingStatus.COMPLETED) {
+            throw new IllegalArgumentException("Cannot change status after completion");
+        }
+
+        booking.setStatus(statusEnum);
+        Booking saved = bookingRepository.save(booking);
+
+        // TODO: trigger notification/email if desired (e.g., when ACCEPTED or COMPLETED)
+
+        return saved;
+    }
 }

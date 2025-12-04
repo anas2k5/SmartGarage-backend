@@ -3,7 +3,7 @@ package com.smartgarage.backend.model;
 public enum BookingStatus {
     PENDING,
     ACCEPTED,
-    REJECTED,
-    CANCELLED,
-    COMPLETED
+    IN_PROGRESS,
+    COMPLETED,
+    CANCELLED
 }
