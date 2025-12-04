@@ -6,6 +6,7 @@ import com.smartgarage.backend.exception.ResourceNotFoundException;
 import com.smartgarage.backend.model.*;
 import com.smartgarage.backend.repository.BookingRepository;
 import com.smartgarage.backend.repository.GarageRepository;
+import com.smartgarage.backend.repository.MechanicRepository;
 import com.smartgarage.backend.repository.UserRepository;
 import com.smartgarage.backend.repository.VehicleRepository;
 import com.smartgarage.backend.service.BookingService;
@@ -24,15 +25,18 @@ public class BookingServiceImpl implements BookingService {
     private final GarageRepository garageRepository;
     private final VehicleRepository vehicleRepository;
     private final UserRepository userRepository;
+    private final MechanicRepository mechanicRepository;
 
     public BookingServiceImpl(BookingRepository bookingRepository,
                               GarageRepository garageRepository,
                               VehicleRepository vehicleRepository,
-                              UserRepository userRepository) {
+                              UserRepository userRepository,
+                              MechanicRepository mechanicRepository) {
         this.bookingRepository = bookingRepository;
         this.garageRepository = garageRepository;
         this.vehicleRepository = vehicleRepository;
         this.userRepository = userRepository;
+        this.mechanicRepository = mechanicRepository;
     }
 
     @Override
@@ -104,57 +108,149 @@ public class BookingServiceImpl implements BookingService {
         return bookingRepository.findById(id);
     }
 
+    // -----------------------------
+    // New methods (assign/update)
+    // -----------------------------
+
     /**
-     * Update booking status. Only the garage owner or ADMIN can update.
+     * Assign a mechanic to booking.
      *
-     * @param bookingId     id of booking to update
-     * @param newStatus     target status string (must be enum name)
-     * @param requesterId   id of authenticated user making the request
-     * @param requesterRole role string of requester (e.g., "OWNER", "ADMIN")
-     * @return updated booking
+     * Only the garage owner (of the booking's garage) or ADMIN can assign a mechanic.
+     * Mechanic must belong to the same garage as the booking.
      */
     @Override
-    public Booking updateBookingStatus(Long bookingId, String newStatus, Long requesterId, String requesterRole) {
-        if (newStatus == null || newStatus.isBlank()) {
-            throw new IllegalArgumentException("status is required");
-        }
+    public Booking assignMechanic(Long bookingId, Long mechanicId, Long requesterId, String requesterRole) {
+        if (bookingId == null) throw new IllegalArgumentException("bookingId is required");
+        if (mechanicId == null) throw new IllegalArgumentException("mechanicId is required");
+        if (requesterId == null) throw new IllegalArgumentException("requesterId is required");
 
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
 
-        // Ensure garage & owner exist
-        Garage garage = booking.getGarage();
-        if (garage == null || garage.getOwner() == null) {
-            throw new IllegalArgumentException("Booking does not have a valid garage/owner");
+        Mechanic mechanic = mechanicRepository.findById(mechanicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mechanic not found"));
+
+        // authorize: only garage owner or ADMIN can assign
+        User garageOwner = booking.getGarage().getOwner();
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(requesterRole);
+        boolean isOwner = garageOwner != null && garageOwner.getId().equals(requesterId);
+
+        if (!isAdmin && !isOwner) {
+            throw new ForbiddenException("Only the garage owner or admin can assign a mechanic");
         }
 
-        Long ownerId = garage.getOwner().getId();
+        // mechanic must belong to same garage
+        if (mechanic.getGarage() == null || !mechanic.getGarage().getId().equals(booking.getGarage().getId())) {
+            throw new IllegalArgumentException("Mechanic does not belong to the booking's garage");
+        }
 
-        boolean isOwner = ownerId != null && ownerId.equals(requesterId);
-        boolean isAdmin = requesterRole != null && requesterRole.equalsIgnoreCase("ADMIN");
+        booking.setMechanic(mechanic);
 
-        if (!isOwner && !isAdmin) {
+        // optionally change status (commented out)
+        // booking.setStatus(BookingStatus.IN_PROGRESS);
+
+        return bookingRepository.save(booking);
+    }
+
+    /**
+     * Update booking status (owner or admin only).
+     *
+     * newStatus must be a valid BookingStatus name (case-sensitive to enum names).
+     */
+    @Override
+    public Booking updateBookingStatus(Long bookingId, String newStatus, Long requesterId, String requesterRole) {
+        if (bookingId == null) throw new IllegalArgumentException("bookingId is required");
+        if (newStatus == null || newStatus.isBlank()) throw new IllegalArgumentException("status is required");
+        if (requesterId == null) throw new IllegalArgumentException("requesterId is required");
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+        // authorize: only garage owner or ADMIN can update status
+        User garageOwner = booking.getGarage().getOwner();
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(requesterRole);
+        boolean isOwner = garageOwner != null && garageOwner.getId().equals(requesterId);
+
+        if (!isAdmin && !isOwner) {
             throw new ForbiddenException("Only the garage owner or admin can change booking status");
         }
 
+        // validate status string matches enum
         BookingStatus statusEnum;
         try {
             statusEnum = BookingStatus.valueOf(newStatus);
         } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException("Invalid status value: " + newStatus);
-        }
-
-        // Optional: simple transition guard (prevent changes once COMPLETED)
-        BookingStatus old = booking.getStatus();
-        if (old == BookingStatus.COMPLETED && statusEnum != BookingStatus.COMPLETED) {
-            throw new IllegalArgumentException("Cannot change status after completion");
+            throw new IllegalArgumentException("Invalid booking status: " + newStatus);
         }
 
         booking.setStatus(statusEnum);
-        Booking saved = bookingRepository.save(booking);
+        return bookingRepository.save(booking);
+    }
 
-        // TODO: trigger notification/email if desired (e.g., when ACCEPTED or COMPLETED)
+    /**
+     * Update estimated cost of booking.
+     *
+     * Only garage owner or ADMIN may update estimated cost.
+     */
+    @Override
+    public Booking updateEstimatedCost(Long bookingId, Double estimatedCost, Long requesterId, String requesterRole) {
+        if (bookingId == null) throw new IllegalArgumentException("bookingId is required");
+        if (estimatedCost == null) throw new IllegalArgumentException("estimatedCost is required");
+        if (requesterId == null) throw new IllegalArgumentException("requesterId is required");
 
-        return saved;
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+        // authorize: only garage owner or ADMIN can update estimated cost
+        User garageOwner = booking.getGarage().getOwner();
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(requesterRole);
+        boolean isOwner = garageOwner != null && garageOwner.getId().equals(requesterId);
+
+        if (!isAdmin && !isOwner) {
+            throw new ForbiddenException("Only the garage owner or admin can update estimated cost");
+        }
+
+        if (estimatedCost < 0) {
+            throw new IllegalArgumentException("estimatedCost must be non-negative");
+        }
+
+        booking.setEstimatedCost(estimatedCost);
+        return bookingRepository.save(booking);
+    }
+
+    /**
+     * Update final cost of booking.
+     *
+     * Only garage owner or ADMIN may update final cost.
+     * Typically used when work is completed and final invoice is known.
+     */
+    @Override
+    public Booking updateFinalCost(Long bookingId, Double finalCost, Long requesterId, String requesterRole) {
+        if (bookingId == null) throw new IllegalArgumentException("bookingId is required");
+        if (finalCost == null) throw new IllegalArgumentException("finalCost is required");
+        if (requesterId == null) throw new IllegalArgumentException("requesterId is required");
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+        // authorize: only garage owner or ADMIN can update final cost
+        User garageOwner = booking.getGarage().getOwner();
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(requesterRole);
+        boolean isOwner = garageOwner != null && garageOwner.getId().equals(requesterId);
+
+        if (!isAdmin && !isOwner) {
+            throw new ForbiddenException("Only the garage owner or admin can update final cost");
+        }
+
+        if (finalCost < 0) {
+            throw new IllegalArgumentException("finalCost must be non-negative");
+        }
+
+        booking.setFinalCost(finalCost);
+
+        // optional: you might want to mark booking COMPLETED when final cost is set
+        // booking.setStatus(BookingStatus.COMPLETED);
+
+        return bookingRepository.save(booking);
     }
 }

@@ -7,11 +7,24 @@ import java.util.List;
 import java.util.Optional;
 
 public interface BookingService {
+
     Booking saveFromRequest(BookingRequest req);
+
     List<Booking> byCustomer(Long customerId);
+
     List<Booking> byGarage(Long garageId);
+
     Optional<Booking> byId(Long id);
 
-    // New method: update booking status (owner or admin)
+    // Assign mechanic (Owner/Admin only)
+    Booking assignMechanic(Long bookingId, Long mechanicId, Long requesterId, String requesterRole);
+
+    // Update booking status (Owner/Admin only)
     Booking updateBookingStatus(Long bookingId, String newStatus, Long requesterId, String requesterRole);
+
+    // Update estimated cost (Owner/Admin only)
+    Booking updateEstimatedCost(Long bookingId, Double estimatedCost, Long requesterId, String requesterRole);
+
+    // Update final cost (Owner/Admin only)
+    Booking updateFinalCost(Long bookingId, Double finalCost, Long requesterId, String requesterRole);
 }

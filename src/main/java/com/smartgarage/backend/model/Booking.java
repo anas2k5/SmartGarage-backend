@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class Booking {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -29,6 +30,7 @@ public class Booking {
     private Vehicle vehicle;
 
     private String serviceType;
+
     private LocalDateTime bookingTime;
 
     @Enumerated(EnumType.STRING)
@@ -36,4 +38,14 @@ public class Booking {
 
     @Column(length = 2000)
     private String details;
+
+    // NEW — mechanic (nullable)
+    @ManyToOne
+    @JoinColumn(name = "mechanic_id")
+    private Mechanic mechanic;
+
+    // NEW — cost fields
+    private Double estimatedCost;
+
+    private Double finalCost;
 }
