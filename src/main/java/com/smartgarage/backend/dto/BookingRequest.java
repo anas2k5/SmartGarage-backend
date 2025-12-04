@@ -1,112 +1,59 @@
 package com.smartgarage.backend.dto;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.validation.constraints.NotNull;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 
 /**
- * DTO used for creating bookings from the client.
- * Contains only simple fields / ids — nested objects are not sent in the request.
+ * BookingRequest used by controller. client should send:
+ * - garageId
+ * - vehicleId
+ * - serviceType (optional)
+ * - bookingTime (ISO8601) -> parsed by controller / Jackson to LocalDateTime
+ * - details (optional)
+ *
+ * customerId will be set server-side (from Principal) before passing to service.
  */
 public class BookingRequest {
 
+    @NotNull
     private Long garageId;
+
+    @NotNull
     private Long vehicleId;
-    private Long customerId;        // optional: if controller sets authenticated user, this can be null
+
     private String serviceType;
+
+    @NotNull
+    private LocalDateTime bookingTime;
+
     private String details;
 
     /**
-     * Use OffsetDateTime for timezone-aware datetimes coming from client.
-     * Example client value: "2025-12-01T20:30:38.445Z" or "2025-12-01T20:30:38.445+05:30"
+     * This is set by the server (controller) after authentication.
+     * Stored here temporarily so service can validate ownership.
      */
-    @JsonFormat(shape = JsonFormat.Shape.STRING)
-    private OffsetDateTime slotStart;
+    @JsonIgnore
+    private Long customerId;
 
-    @JsonFormat(shape = JsonFormat.Shape.STRING)
-    private OffsetDateTime slotEnd;
-
-    // --- Constructors ---
     public BookingRequest() {}
 
-    public BookingRequest(Long garageId, Long vehicleId, Long customerId, String serviceType,
-                          String details, OffsetDateTime slotStart, OffsetDateTime slotEnd) {
-        this.garageId = garageId;
-        this.vehicleId = vehicleId;
-        this.customerId = customerId;
-        this.serviceType = serviceType;
-        this.details = details;
-        this.slotStart = slotStart;
-        this.slotEnd = slotEnd;
-    }
+    public Long getGarageId() { return garageId; }
+    public void setGarageId(Long garageId) { this.garageId = garageId; }
 
-    // --- Getters & Setters ---
-    public Long getGarageId() {
-        return garageId;
-    }
+    public Long getVehicleId() { return vehicleId; }
+    public void setVehicleId(Long vehicleId) { this.vehicleId = vehicleId; }
 
-    public void setGarageId(Long garageId) {
-        this.garageId = garageId;
-    }
+    public String getServiceType() { return serviceType; }
+    public void setServiceType(String serviceType) { this.serviceType = serviceType; }
 
-    public Long getVehicleId() {
-        return vehicleId;
-    }
+    public LocalDateTime getBookingTime() { return bookingTime; }
+    public void setBookingTime(LocalDateTime bookingTime) { this.bookingTime = bookingTime; }
 
-    public void setVehicleId(Long vehicleId) {
-        this.vehicleId = vehicleId;
-    }
+    public String getDetails() { return details; }
+    public void setDetails(String details) { this.details = details; }
 
-    public Long getCustomerId() {
-        return customerId;
-    }
-
-    public void setCustomerId(Long customerId) {
-        this.customerId = customerId;
-    }
-
-    public String getServiceType() {
-        return serviceType;
-    }
-
-    public void setServiceType(String serviceType) {
-        this.serviceType = serviceType;
-    }
-
-    public String getDetails() {
-        return details;
-    }
-
-    public void setDetails(String details) {
-        this.details = details;
-    }
-
-    public OffsetDateTime getSlotStart() {
-        return slotStart;
-    }
-
-    public void setSlotStart(OffsetDateTime slotStart) {
-        this.slotStart = slotStart;
-    }
-
-    public OffsetDateTime getSlotEnd() {
-        return slotEnd;
-    }
-
-    public void setSlotEnd(OffsetDateTime slotEnd) {
-        this.slotEnd = slotEnd;
-    }
-
-    @Override
-    public String toString() {
-        return "BookingRequest{" +
-                "garageId=" + garageId +
-                ", vehicleId=" + vehicleId +
-                ", customerId=" + customerId +
-                ", serviceType='" + serviceType + '\'' +
-                ", details='" + details + '\'' +
-                ", slotStart=" + slotStart +
-                ", slotEnd=" + slotEnd +
-                '}';
-    }
+    public Long getCustomerId() { return customerId; }
+    public void setCustomerId(Long customerId) { this.customerId = customerId; }
 }
