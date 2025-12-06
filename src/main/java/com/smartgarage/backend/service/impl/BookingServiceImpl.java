@@ -27,14 +27,14 @@ public class BookingServiceImpl implements BookingService {
     private final VehicleRepository vehicleRepository;
     private final UserRepository userRepository;
     private final MechanicRepository mechanicRepository;
-    private final EmailService emailService;   // 👈 NEW
+    private final EmailService emailService;
 
     public BookingServiceImpl(BookingRepository bookingRepository,
                               GarageRepository garageRepository,
                               VehicleRepository vehicleRepository,
                               UserRepository userRepository,
                               MechanicRepository mechanicRepository,
-                              EmailService emailService) {   // 👈 NEW PARAM
+                              EmailService emailService) {
         this.bookingRepository = bookingRepository;
         this.garageRepository = garageRepository;
         this.vehicleRepository = vehicleRepository;
@@ -90,10 +90,55 @@ public class BookingServiceImpl implements BookingService {
                 .details(req.getDetails())
                 .build();
 
-        // save and return
+        // save booking
         Booking saved = bookingRepository.save(booking);
 
-        // (Optional) you can also send "Booking Created" email here later if you want
+        // --------- EMAILS ON BOOKING CREATION ---------
+        try {
+            // 1) Email to CUSTOMER
+            User customer = saved.getCustomer();
+            if (customer != null && customer.getEmail() != null) {
+                String toCustomer = customer.getEmail();
+                String subjectCustomer = "Booking Created - #" + saved.getId();
+                String textCustomer = "Hi,\n\n"
+                        + "Your booking has been created successfully.\n\n"
+                        + "Booking ID: " + saved.getId() + "\n"
+                        + "Garage: " + saved.getGarage().getName() + "\n"
+                        + "Service Type: " + saved.getServiceType() + "\n"
+                        + "Scheduled Time: " + saved.getBookingTime() + "\n"
+                        + "Vehicle ID: " + saved.getVehicle().getId() + "\n\n"
+                        + "You will receive another email when a mechanic is assigned.\n\n"
+                        + "Thank you for using Smart Garage.\n\n"
+                        + "Regards,\nSmart Garage Team";
+
+                System.out.println(">>> Sending BOOKING CREATED email to customer: " + toCustomer);
+                emailService.sendSimpleMail(toCustomer, subjectCustomer, textCustomer);
+            }
+
+            // 2) Email to GARAGE OWNER
+            User garageOwner = saved.getGarage().getOwner();
+            if (garageOwner != null && garageOwner.getEmail() != null) {
+                String toOwner = garageOwner.getEmail();
+                String subjectOwner = "New Booking Received - #" + saved.getId();
+                String textOwner = "Hello,\n\n"
+                        + "A new booking has been created for your garage.\n\n"
+                        + "Booking ID: " + saved.getId() + "\n"
+                        + "Garage: " + saved.getGarage().getName() + "\n"
+                        + "Customer ID: " + saved.getCustomer().getId() + "\n"
+                        + "Vehicle ID: " + saved.getVehicle().getId() + "\n"
+                        + "Service Type: " + saved.getServiceType() + "\n"
+                        + "Scheduled Time: " + saved.getBookingTime() + "\n\n"
+                        + "You can assign a mechanic from the Smart Garage dashboard.\n\n"
+                        + "Regards,\nSmart Garage System";
+
+                System.out.println(">>> Sending BOOKING CREATED email to owner: " + toOwner);
+                emailService.sendSimpleMail(toOwner, subjectOwner, textOwner);
+            }
+        } catch (Exception ex) {
+            // don't break booking creation if email fails
+            System.out.println("Failed to send booking created email: " + ex.getMessage());
+        }
+        // --------------------------------------------------
 
         return saved;
     }
@@ -120,12 +165,6 @@ public class BookingServiceImpl implements BookingService {
     // New methods (assign/update)
     // -----------------------------
 
-    /**
-     * Assign a mechanic to booking.
-     *
-     * Only the garage owner (of the booking's garage) or ADMIN can assign a mechanic.
-     * Mechanic must belong to the same garage as the booking.
-     */
     @Override
     public Booking assignMechanic(Long bookingId, Long mechanicId, Long requesterId, String requesterRole) {
         if (bookingId == null) throw new IllegalArgumentException("bookingId is required");
@@ -192,7 +231,6 @@ public class BookingServiceImpl implements BookingService {
                 emailService.sendSimpleMail(toOwner, subjectOwner, textOwner);
             }
         } catch (Exception ex) {
-            // don't break main flow if email fails
             System.out.println("Failed to send mechanic assignment email: " + ex.getMessage());
         }
         // --------------------------------------------------
@@ -200,11 +238,6 @@ public class BookingServiceImpl implements BookingService {
         return saved;
     }
 
-    /**
-     * Update booking status (owner or admin only).
-     *
-     * newStatus must be a valid BookingStatus name (case-sensitive to enum names).
-     */
     @Override
     public Booking updateBookingStatus(Long bookingId, String newStatus, Long requesterId, String requesterRole) {
         if (bookingId == null) throw new IllegalArgumentException("bookingId is required");
@@ -223,7 +256,6 @@ public class BookingServiceImpl implements BookingService {
             throw new ForbiddenException("Only the garage owner or admin can change booking status");
         }
 
-        // validate status string matches enum
         BookingStatus statusEnum;
         try {
             statusEnum = BookingStatus.valueOf(newStatus);
@@ -235,11 +267,6 @@ public class BookingServiceImpl implements BookingService {
         return bookingRepository.save(booking);
     }
 
-    /**
-     * Update estimated cost of booking.
-     *
-     * Only garage owner or ADMIN may update estimated cost.
-     */
     @Override
     public Booking updateEstimatedCost(Long bookingId, Double estimatedCost, Long requesterId, String requesterRole) {
         if (bookingId == null) throw new IllegalArgumentException("bookingId is required");
@@ -249,7 +276,6 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
 
-        // authorize: only garage owner or ADMIN can update estimated cost
         User garageOwner = booking.getGarage().getOwner();
         boolean isAdmin = "ADMIN".equalsIgnoreCase(requesterRole);
         boolean isOwner = garageOwner != null && garageOwner.getId().equals(requesterId);
@@ -266,12 +292,6 @@ public class BookingServiceImpl implements BookingService {
         return bookingRepository.save(booking);
     }
 
-    /**
-     * Update final cost of booking.
-     *
-     * Only garage owner or ADMIN may update final cost.
-     * Typically used when work is completed and final invoice is known.
-     */
     @Override
     public Booking updateFinalCost(Long bookingId, Double finalCost, Long requesterId, String requesterRole) {
         if (bookingId == null) throw new IllegalArgumentException("bookingId is required");
@@ -281,7 +301,6 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
 
-        // authorize: only garage owner or ADMIN can update final cost
         User garageOwner = booking.getGarage().getOwner();
         boolean isAdmin = "ADMIN".equalsIgnoreCase(requesterRole);
         boolean isOwner = garageOwner != null && garageOwner.getId().equals(requesterId);
@@ -295,9 +314,7 @@ public class BookingServiceImpl implements BookingService {
         }
 
         booking.setFinalCost(finalCost);
-
-        // optional: you might want to mark booking COMPLETED when final cost is set
-        // booking.setStatus(BookingStatus.COMPLETED);
+        // optional: booking.setStatus(BookingStatus.COMPLETED);
 
         return bookingRepository.save(booking);
     }
