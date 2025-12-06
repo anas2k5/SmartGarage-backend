@@ -13,6 +13,7 @@ import com.smartgarage.backend.repository.BookingRepository;
 import com.smartgarage.backend.repository.InvoiceRepository;
 import com.smartgarage.backend.repository.PaymentRepository;
 import com.smartgarage.backend.service.EmailService;
+import com.smartgarage.backend.service.InvoicePdfService;
 import com.smartgarage.backend.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final InvoiceRepository invoiceRepository;
     private final EmailService emailService;
+    private final InvoicePdfService invoicePdfService;
 
     @Override
     @Transactional
@@ -97,24 +99,30 @@ public class PaymentServiceImpl implements PaymentService {
             booking.setStatus(BookingStatus.COMPLETED);
             bookingRepository.save(booking);
 
-            // send email to YOUR gmail directly for testing
+            // send email to CUSTOMER with PDF invoice attached
             try {
-                String to = booking.getCustomer().getEmail();
+                String to = booking.getCustomer().getEmail();   // 👈 now dynamic
 
-                System.out.println(">>> Sending PAYMENT email to: " + to);
+                System.out.println(">>> Sending PAYMENT email (with PDF invoice) to: " + to);
 
                 String subject = "Payment Successful for Booking #" + booking.getId();
                 String text = "Hi,\n\n"
                         + "We have received your payment of ₹" + request.getAmountPaid()
                         + " for booking #" + booking.getId() + ".\n"
                         + "Invoice Number: " + invoice.getInvoiceNumber() + "\n\n"
+                        + "Your invoice PDF is attached to this email.\n\n"
                         + "Thank you for using Smart Garage.\n\n"
                         + "Regards,\nSmart Garage Team";
 
-                emailService.sendSimpleMail(to, subject, text);
+                // generate PDF bytes for this booking
+                byte[] pdfBytes = invoicePdfService.generateInvoicePdf(bookingId);
+                String pdfFilename = "invoice-" + bookingId + ".pdf";
+
+                // use new email method
+                emailService.sendMailWithAttachment(to, subject, text, pdfBytes, pdfFilename);
             } catch (Exception ex) {
-                // avoid breaking payment flow if email fails
-                System.out.println("Failed to send payment email: " + ex.getMessage());
+                // avoid breaking payment flow if email or pdf generation fails
+                System.out.println("Failed to send payment email with invoice attachment: " + ex.getMessage());
             }
         }
 
