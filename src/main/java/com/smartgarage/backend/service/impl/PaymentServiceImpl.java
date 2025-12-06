@@ -12,6 +12,7 @@ import com.smartgarage.backend.model.PaymentStatus;
 import com.smartgarage.backend.repository.BookingRepository;
 import com.smartgarage.backend.repository.InvoiceRepository;
 import com.smartgarage.backend.repository.PaymentRepository;
+import com.smartgarage.backend.service.EmailService;
 import com.smartgarage.backend.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final BookingRepository bookingRepository;
     private final PaymentRepository paymentRepository;
     private final InvoiceRepository invoiceRepository;
+    private final EmailService emailService;
 
     @Override
     @Transactional
@@ -69,20 +71,51 @@ public class PaymentServiceImpl implements PaymentService {
 
         Payment savedPayment = paymentRepository.save(payment);
 
-        // If success → create invoice + update booking status
+        // If success → create/update invoice + update booking status + send email
         if (request.isSuccess()) {
-            Invoice invoice = Invoice.builder()
-                    .booking(booking)
-                    .payment(savedPayment)
-                    .invoiceNumber(generateInvoiceNumber(booking))
-                    .invoiceDate(LocalDateTime.now())
-                    .totalAmount(request.getAmountPaid())
-                    .build();
+            // create or update invoice (avoid duplicate key error)
+            Invoice invoice = invoiceRepository.findByBooking(booking)
+                    .orElse(null);
+
+            if (invoice == null) {
+                invoice = Invoice.builder()
+                        .booking(booking)
+                        .payment(savedPayment)
+                        .invoiceNumber(generateInvoiceNumber(booking))
+                        .invoiceDate(LocalDateTime.now())
+                        .totalAmount(request.getAmountPaid())
+                        .build();
+            } else {
+                invoice.setPayment(savedPayment);
+                invoice.setTotalAmount(request.getAmountPaid());
+                invoice.setInvoiceDate(LocalDateTime.now());
+            }
+
             invoiceRepository.save(invoice);
 
-            // mark booking as PAID / COMPLETED
+            // mark booking as COMPLETED
             booking.setStatus(BookingStatus.COMPLETED);
             bookingRepository.save(booking);
+
+            // send email to YOUR gmail directly for testing
+            try {
+                String to = booking.getCustomer().getEmail();
+
+                System.out.println(">>> Sending PAYMENT email to: " + to);
+
+                String subject = "Payment Successful for Booking #" + booking.getId();
+                String text = "Hi,\n\n"
+                        + "We have received your payment of ₹" + request.getAmountPaid()
+                        + " for booking #" + booking.getId() + ".\n"
+                        + "Invoice Number: " + invoice.getInvoiceNumber() + "\n\n"
+                        + "Thank you for using Smart Garage.\n\n"
+                        + "Regards,\nSmart Garage Team";
+
+                emailService.sendSimpleMail(to, subject, text);
+            } catch (Exception ex) {
+                // avoid breaking payment flow if email fails
+                System.out.println("Failed to send payment email: " + ex.getMessage());
+            }
         }
 
         return toPaymentDto(savedPayment);
