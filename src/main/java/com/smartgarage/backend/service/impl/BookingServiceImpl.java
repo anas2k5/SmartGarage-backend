@@ -10,6 +10,7 @@ import com.smartgarage.backend.repository.MechanicRepository;
 import com.smartgarage.backend.repository.UserRepository;
 import com.smartgarage.backend.repository.VehicleRepository;
 import com.smartgarage.backend.service.BookingService;
+import com.smartgarage.backend.service.EmailService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,17 +27,20 @@ public class BookingServiceImpl implements BookingService {
     private final VehicleRepository vehicleRepository;
     private final UserRepository userRepository;
     private final MechanicRepository mechanicRepository;
+    private final EmailService emailService;   // 👈 NEW
 
     public BookingServiceImpl(BookingRepository bookingRepository,
                               GarageRepository garageRepository,
                               VehicleRepository vehicleRepository,
                               UserRepository userRepository,
-                              MechanicRepository mechanicRepository) {
+                              MechanicRepository mechanicRepository,
+                              EmailService emailService) {   // 👈 NEW PARAM
         this.bookingRepository = bookingRepository;
         this.garageRepository = garageRepository;
         this.vehicleRepository = vehicleRepository;
         this.userRepository = userRepository;
         this.mechanicRepository = mechanicRepository;
+        this.emailService = emailService;
     }
 
     @Override
@@ -87,7 +91,11 @@ public class BookingServiceImpl implements BookingService {
                 .build();
 
         // save and return
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        // (Optional) you can also send "Booking Created" email here later if you want
+
+        return saved;
     }
 
     @Override
@@ -146,10 +154,50 @@ public class BookingServiceImpl implements BookingService {
 
         booking.setMechanic(mechanic);
 
-        // optionally change status (commented out)
+        // optionally change status
         // booking.setStatus(BookingStatus.IN_PROGRESS);
 
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        // --------- EMAILS ON MECHANIC ASSIGNMENT ---------
+        try {
+            // 1) Email to CUSTOMER
+            if (saved.getCustomer() != null && saved.getCustomer().getEmail() != null) {
+                String toCustomer = saved.getCustomer().getEmail();
+                String subjectCustomer = "Mechanic Assigned for Your Booking #" + saved.getId();
+                String textCustomer = "Hi,\n\n"
+                        + "A mechanic has been assigned for your booking #" + saved.getId() + ".\n"
+                        + "Service Type: " + saved.getServiceType() + "\n"
+                        + "Scheduled Time: " + saved.getBookingTime() + "\n"
+                        + "Mechanic ID: " + mechanic.getId() + "\n\n"
+                        + "Thank you for using Smart Garage.\n\n"
+                        + "Regards,\nSmart Garage Team";
+
+                System.out.println(">>> Sending MECHANIC ASSIGNED email to customer: " + toCustomer);
+                emailService.sendSimpleMail(toCustomer, subjectCustomer, textCustomer);
+            }
+
+            // 2) Email to GARAGE OWNER
+            if (garageOwner != null && garageOwner.getEmail() != null) {
+                String toOwner = garageOwner.getEmail();
+                String subjectOwner = "Mechanic Assigned to Booking #" + saved.getId();
+                String textOwner = "Hello,\n\n"
+                        + "You have assigned a mechanic for booking #" + saved.getId() + ".\n"
+                        + "Service Type: " + saved.getServiceType() + "\n"
+                        + "Customer ID: " + saved.getCustomer().getId() + "\n"
+                        + "Mechanic ID: " + mechanic.getId() + "\n\n"
+                        + "Regards,\nSmart Garage System";
+
+                System.out.println(">>> Sending MECHANIC ASSIGNED email to owner: " + toOwner);
+                emailService.sendSimpleMail(toOwner, subjectOwner, textOwner);
+            }
+        } catch (Exception ex) {
+            // don't break main flow if email fails
+            System.out.println("Failed to send mechanic assignment email: " + ex.getMessage());
+        }
+        // --------------------------------------------------
+
+        return saved;
     }
 
     /**
