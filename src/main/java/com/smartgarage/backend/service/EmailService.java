@@ -1,14 +1,23 @@
 package com.smartgarage.backend.service;
 
+import com.smartgarage.backend.model.BookingStatus;
+
 public interface EmailService {
 
-    // existing simple text email
     void sendSimpleMail(String to, String subject, String text);
 
-    // NEW – email with a single attachment (e.g. PDF invoice)
-    void sendMailWithAttachment(String to,
-                                String subject,
-                                String text,
-                                byte[] attachmentBytes,
-                                String attachmentFilename);
+    void sendMailWithAttachment(
+            String to,
+            String subject,
+            String text,
+            byte[] attachmentBytes,
+            String attachmentFilename
+    );
+
+    // ✅ NEW: Booking status email
+    void sendBookingStatusMail(
+            String to,
+            Long bookingId,
+            BookingStatus status
+    );
 }
