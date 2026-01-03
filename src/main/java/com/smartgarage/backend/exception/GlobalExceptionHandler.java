@@ -8,23 +8,20 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Global exception handler that extends Spring's ResponseEntityExceptionHandler.
- * This class must match the exact method signatures used by the superclass.
- */
 @ControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-    /**
-     * Signature uses HttpStatusCode for Spring 6 compatibility.
-     */
+    /* =========================
+       VALIDATION ERRORS (400)
+       ========================= */
     @Override
     @NonNull
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
@@ -50,6 +47,57 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
     }
 
+    /* =========================
+       CONFLICT (409)
+       ========================= */
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ApiError> handleConflict(ConflictException ex, WebRequest req) {
+        ApiError err = new ApiError(
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                ex.getMessage(),
+                req.getDescription(false).replace("uri=", ""),
+                List.of()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(err);
+    }
+
+    /* =========================
+       BUSINESS RULE ERRORS (400)
+       ========================= */
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiError> handleIllegalState(IllegalStateException ex, WebRequest req) {
+        ApiError err = new ApiError(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                ex.getMessage(),
+                req.getDescription(false).replace("uri=", ""),
+                List.of()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
+    }
+
+    /* =========================
+       RESOURCE NOT FOUND (404)
+       ========================= */
+    @ExceptionHandler({
+            EntityNotFoundException.class,
+            ResourceNotFoundException.class
+    })
+    public ResponseEntity<ApiError> handleNotFound(RuntimeException ex, WebRequest req) {
+        ApiError err = new ApiError(
+                HttpStatus.NOT_FOUND.value(),
+                HttpStatus.NOT_FOUND.getReasonPhrase(),
+                ex.getMessage(),
+                req.getDescription(false).replace("uri=", ""),
+                List.of()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(err);
+    }
+
+    /* =========================
+       DUPLICATE VEHICLE (409)
+       ========================= */
     @ExceptionHandler(VehicleAlreadyExistsException.class)
     public ResponseEntity<ApiError> handleVehicleExists(VehicleAlreadyExistsException ex, WebRequest req) {
         ApiError err = new ApiError(
@@ -62,18 +110,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(err);
     }
 
-    @ExceptionHandler(EntityNotFoundException.class)
-    public ResponseEntity<ApiError> handleNotFound(EntityNotFoundException ex, WebRequest req) {
-        ApiError err = new ApiError(
-                HttpStatus.NOT_FOUND.value(),
-                HttpStatus.NOT_FOUND.getReasonPhrase(),
-                ex.getMessage(),
-                req.getDescription(false).replace("uri=", ""),
-                List.of()
-        );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(err);
-    }
-
+    /* =========================
+       FALLBACK (500)
+       ========================= */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleAll(Exception ex, WebRequest req) {
         ApiError err = new ApiError(
@@ -83,7 +122,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 req.getDescription(false).replace("uri=", ""),
                 List.of(ex.getMessage())
         );
-        ex.printStackTrace();
+        ex.printStackTrace(); // keep for dev, remove in prod
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
     }
 }

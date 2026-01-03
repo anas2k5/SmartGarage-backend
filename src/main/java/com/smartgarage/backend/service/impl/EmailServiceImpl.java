@@ -62,7 +62,7 @@ public class EmailServiceImpl implements EmailService {
     }
 
     // ==========================================================
-    // ✅ BOOKING STATUS EMAIL (ASYNC + CLEAN)
+    // ✅ BOOKING STATUS EMAIL (ASYNC)
     // ==========================================================
     @Async
     @Override
@@ -77,7 +77,7 @@ public class EmailServiceImpl implements EmailService {
         switch (status) {
             case PENDING -> message =
                     "Hi,\n\nYour booking #" + bookingId +
-                            " has been successfully created and is pending approval.\n\n" +
+                            " has been created and is pending approval.\n\n" +
                             "Smart Garage Team";
 
             case ACCEPTED -> message =
@@ -97,17 +97,12 @@ public class EmailServiceImpl implements EmailService {
             case CANCELLED -> message =
                     "Cancelled ❌\n\nYour booking #" + bookingId +
                             " has been cancelled.\n\n" +
-                            "If you have questions, please contact support.";
+                            "If you have questions, contact support.";
 
             default -> message =
                     "Your booking #" + bookingId +
-                            " status has been updated to " + status;
+                            " status changed to " + status;
         }
-
-        System.out.println(
-                ">>> STATUS EMAIL TRIGGERED: bookingId=" +
-                        bookingId + ", status=" + status + ", to=" + to
-        );
 
         sendSimpleMail(to, subject, message);
     }
