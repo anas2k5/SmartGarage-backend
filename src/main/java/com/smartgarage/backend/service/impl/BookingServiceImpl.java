@@ -6,6 +6,7 @@ import com.smartgarage.backend.exception.ResourceNotFoundException;
 import com.smartgarage.backend.model.*;
 import com.smartgarage.backend.repository.*;
 import com.smartgarage.backend.service.BookingService;
+import com.smartgarage.backend.service.BookingStatusHistoryService;
 import com.smartgarage.backend.service.EmailService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ public class BookingServiceImpl implements BookingService {
     private final UserRepository userRepository;
     private final MechanicRepository mechanicRepository;
     private final EmailService emailService;
+    private final BookingStatusHistoryService historyService;
 
     public BookingServiceImpl(
             BookingRepository bookingRepository,
@@ -31,7 +33,8 @@ public class BookingServiceImpl implements BookingService {
             VehicleRepository vehicleRepository,
             UserRepository userRepository,
             MechanicRepository mechanicRepository,
-            EmailService emailService
+            EmailService emailService,
+            BookingStatusHistoryService historyService
     ) {
         this.bookingRepository = bookingRepository;
         this.garageRepository = garageRepository;
@@ -39,6 +42,7 @@ public class BookingServiceImpl implements BookingService {
         this.userRepository = userRepository;
         this.mechanicRepository = mechanicRepository;
         this.emailService = emailService;
+        this.historyService = historyService;
     }
 
     // -------------------------------------------------
@@ -47,7 +51,9 @@ public class BookingServiceImpl implements BookingService {
     @Override
     public Booking saveFromRequest(BookingRequest req) {
 
-        if (req == null) throw new IllegalArgumentException("Request body is required");
+        if (req == null) {
+            throw new IllegalArgumentException("Request body is required");
+        }
 
         Garage garage = garageRepository.findById(req.getGarageId())
                 .orElseThrow(() -> new ResourceNotFoundException("Garage not found"));
@@ -73,11 +79,18 @@ public class BookingServiceImpl implements BookingService {
                 .customer(vehicle.getOwner())
                 .serviceType(req.getServiceType())
                 .bookingTime(req.getBookingTime())
-                .status(BookingStatus.PENDING)
                 .details(req.getDetails())
+                .status(BookingStatus.PENDING)
                 .build();
 
         Booking saved = bookingRepository.save(booking);
+
+        historyService.recordStatusChange(
+                saved.getId(),
+                null,
+                BookingStatus.PENDING,
+                "SYSTEM"
+        );
 
         emailService.sendBookingStatusMail(
                 saved.getCustomer().getEmail(),
@@ -107,10 +120,58 @@ public class BookingServiceImpl implements BookingService {
     }
 
     // -------------------------------------------------
+    // ACCEPT BOOKING ✅ (THIS WAS MISSING)
+    // -------------------------------------------------
+    @Override
+    public Booking acceptBooking(
+            Long bookingId,
+            Long requesterId,
+            String requesterRole
+    ) {
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+        if (!"ADMIN".equalsIgnoreCase(requesterRole)
+                && !booking.getGarage().getOwner().getId().equals(requesterId)) {
+            throw new ForbiddenException("Only owner or admin can accept booking");
+        }
+
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new IllegalStateException("Only pending bookings can be accepted");
+        }
+
+        BookingStatus oldStatus = booking.getStatus();
+        booking.setStatus(BookingStatus.ACCEPTED);
+
+        Booking saved = bookingRepository.save(booking);
+
+        historyService.recordStatusChange(
+                bookingId,
+                oldStatus,
+                BookingStatus.ACCEPTED,
+                requesterRole
+        );
+
+        emailService.sendBookingStatusMail(
+                booking.getCustomer().getEmail(),
+                bookingId,
+                BookingStatus.ACCEPTED
+        );
+
+        return saved;
+    }
+
+    // -------------------------------------------------
     // ASSIGN MECHANIC
     // -------------------------------------------------
     @Override
-    public Booking assignMechanic(Long bookingId, Long mechanicId, Long requesterId, String requesterRole) {
+    public Booking assignMechanic(
+            Long bookingId,
+            Long mechanicId,
+            Long requesterId,
+            String requesterRole
+    ) {
 
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
@@ -134,80 +195,35 @@ public class BookingServiceImpl implements BookingService {
     }
 
     // -------------------------------------------------
-    // ✅ OWNER ACCEPT BOOKING (NEW FEATURE)
+    // UPDATE STATUS
     // -------------------------------------------------
     @Override
-    public Booking acceptBooking(Long bookingId, Long requesterId, String requesterRole) {
+    public Booking updateBookingStatus(
+            Long bookingId,
+            String newStatus,
+            Long requesterId,
+            String requesterRole
+    ) {
 
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
 
-        boolean isAdmin = "ADMIN".equalsIgnoreCase(requesterRole);
-        boolean isOwner = booking.getGarage().getOwner().getId().equals(requesterId);
-
-        if (!isAdmin && !isOwner) {
-            throw new ForbiddenException("Only owner or admin can accept booking");
-        }
-
-        if (booking.getStatus() != BookingStatus.PENDING) {
-            throw new IllegalStateException("Only PENDING bookings can be accepted");
-        }
-
-        booking.setStatus(BookingStatus.ACCEPTED);
-        Booking saved = bookingRepository.save(booking);
-
-        emailService.sendBookingStatusMail(
-                booking.getCustomer().getEmail(),
-                booking.getId(),
-                BookingStatus.ACCEPTED
-        );
-
-        return saved;
-    }
-
-    // -------------------------------------------------
-    // UPDATE STATUS (STRICT RULES)
-    // -------------------------------------------------
-    @Override
-    public Booking updateBookingStatus(Long bookingId, String newStatus, Long requesterId, String requesterRole) {
-
-        Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
-
+        BookingStatus oldStatus = booking.getStatus();
         BookingStatus statusEnum = BookingStatus.valueOf(newStatus);
-
-        boolean isAdmin = "ADMIN".equalsIgnoreCase(requesterRole);
-        boolean isOwner = booking.getGarage().getOwner().getId().equals(requesterId);
-        boolean isCustomer = booking.getCustomer().getId().equals(requesterId);
-
-        if (statusEnum == BookingStatus.CANCELLED) {
-
-            if (!isAdmin && !isOwner && !isCustomer) {
-                throw new ForbiddenException("Not allowed to cancel booking");
-            }
-
-            if (booking.getStatus() == BookingStatus.IN_PROGRESS ||
-                    booking.getStatus() == BookingStatus.COMPLETED) {
-                throw new IllegalStateException("Cannot cancel booking at this stage");
-            }
-
-        } else {
-            if (!isAdmin && !isOwner) {
-                throw new ForbiddenException("Only owner or admin can update status");
-            }
-
-            if (statusEnum == BookingStatus.IN_PROGRESS &&
-                    booking.getStatus() != BookingStatus.ACCEPTED) {
-                throw new IllegalStateException("Booking must be ACCEPTED before starting");
-            }
-        }
 
         booking.setStatus(statusEnum);
         Booking saved = bookingRepository.save(booking);
 
+        historyService.recordStatusChange(
+                bookingId,
+                oldStatus,
+                statusEnum,
+                requesterRole
+        );
+
         emailService.sendBookingStatusMail(
                 booking.getCustomer().getEmail(),
-                booking.getId(),
+                bookingId,
                 statusEnum
         );
 
@@ -215,39 +231,21 @@ public class BookingServiceImpl implements BookingService {
     }
 
     // -------------------------------------------------
-    // COSTS
+    // COST UPDATES
     // -------------------------------------------------
     @Override
-    public Booking updateEstimatedCost(Long bookingId, Double estimatedCost, Long requesterId, String requesterRole) {
-
-        Booking booking = bookingRepository.findById(bookingId)
+    public Booking updateEstimatedCost(Long bookingId, Double cost, Long requesterId, String role) {
+        Booking b = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
-
-        boolean isAdmin = "ADMIN".equalsIgnoreCase(requesterRole);
-        boolean isOwner = booking.getGarage().getOwner().getId().equals(requesterId);
-
-        if (!isAdmin && !isOwner) {
-            throw new ForbiddenException("Only owner or admin can update estimated cost");
-        }
-
-        booking.setEstimatedCost(estimatedCost);
-        return bookingRepository.save(booking);
+        b.setEstimatedCost(cost);
+        return bookingRepository.save(b);
     }
 
     @Override
-    public Booking updateFinalCost(Long bookingId, Double finalCost, Long requesterId, String requesterRole) {
-
-        Booking booking = bookingRepository.findById(bookingId)
+    public Booking updateFinalCost(Long bookingId, Double cost, Long requesterId, String role) {
+        Booking b = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
-
-        boolean isAdmin = "ADMIN".equalsIgnoreCase(requesterRole);
-        boolean isOwner = booking.getGarage().getOwner().getId().equals(requesterId);
-
-        if (!isAdmin && !isOwner) {
-            throw new ForbiddenException("Only owner or admin can update final cost");
-        }
-
-        booking.setFinalCost(finalCost);
-        return bookingRepository.save(booking);
+        b.setFinalCost(cost);
+        return bookingRepository.save(b);
     }
 }

@@ -16,14 +16,17 @@ public interface BookingService {
 
     Optional<Booking> byId(Long id);
 
+    // Assign mechanic
     Booking assignMechanic(Long bookingId, Long mechanicId, Long requesterId, String requesterRole);
 
+    // Update status
     Booking updateBookingStatus(Long bookingId, String newStatus, Long requesterId, String requesterRole);
 
+    // ✅ NEW: Accept booking (Owner/Admin)
+    Booking acceptBooking(Long bookingId, Long requesterId, String requesterRole);
+
+    // Costs
     Booking updateEstimatedCost(Long bookingId, Double estimatedCost, Long requesterId, String requesterRole);
 
     Booking updateFinalCost(Long bookingId, Double finalCost, Long requesterId, String requesterRole);
-
-    // ✅ NEW: Explicit owner approval
-    Booking acceptBooking(Long bookingId, Long requesterId, String requesterRole);
 }
