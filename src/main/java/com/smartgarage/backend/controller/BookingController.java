@@ -1,10 +1,6 @@
 package com.smartgarage.backend.controller;
 
-import com.smartgarage.backend.dto.BookingRequest;
-import com.smartgarage.backend.dto.BookingResponse;
-import com.smartgarage.backend.dto.UpdateBookingStatusRequest;
-import com.smartgarage.backend.dto.UpdateEstimatedCostRequest;
-import com.smartgarage.backend.dto.UpdateFinalCostRequest;
+import com.smartgarage.backend.dto.*;
 import com.smartgarage.backend.mapper.BookingMapper;
 import com.smartgarage.backend.model.Booking;
 import com.smartgarage.backend.model.User;
@@ -18,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Validated
 @RestController
@@ -60,7 +55,26 @@ public class BookingController {
     }
 
     // --------------------
-    // GET BY CUSTOMER
+    // GET MY BOOKINGS (JWT BASED) ✅ NEW
+    // --------------------
+    @GetMapping("/me")
+    public ResponseEntity<?> getMyBookings(Principal principal) {
+        Optional<User> maybeUser = getAuthenticatedUser(principal);
+        if (maybeUser.isEmpty())
+            return ResponseEntity.status(401).body("Unauthenticated");
+
+        User me = maybeUser.get();
+
+        List<BookingResponse> resp = bookingService.byCustomer(me.getId())
+                .stream()
+                .map(BookingMapper::toResponse)
+                .toList();
+
+        return ResponseEntity.ok(resp);
+    }
+
+    // --------------------
+    // GET BY CUSTOMER (OLD – CAN STAY)
     // --------------------
     @GetMapping("/customer/{id}")
     public ResponseEntity<?> getByCustomer(@PathVariable Long id, Principal principal) {
@@ -75,7 +89,7 @@ public class BookingController {
         List<BookingResponse> resp = bookingService.byCustomer(id)
                 .stream()
                 .map(BookingMapper::toResponse)
-                .collect(Collectors.toList());
+                .toList();
 
         return ResponseEntity.ok(resp);
     }
@@ -187,7 +201,7 @@ public class BookingController {
     }
 
     // --------------------
-    // ✅ OWNER ACCEPT BOOKING (FIXED)
+    // OWNER / ADMIN ACCEPT BOOKING
     // --------------------
     @PutMapping("/{id}/accept")
     public ResponseEntity<?> acceptBooking(
