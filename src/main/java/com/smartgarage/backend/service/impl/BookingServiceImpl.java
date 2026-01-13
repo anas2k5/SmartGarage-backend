@@ -24,6 +24,7 @@ public class BookingServiceImpl implements BookingService {
     private final GarageRepository garageRepository;
     private final VehicleRepository vehicleRepository;
     private final MechanicRepository mechanicRepository;
+    private final GarageServiceRepository garageServiceRepository;
     private final EmailService emailService;
 
     public BookingServiceImpl(
@@ -31,12 +32,14 @@ public class BookingServiceImpl implements BookingService {
             GarageRepository garageRepository,
             VehicleRepository vehicleRepository,
             MechanicRepository mechanicRepository,
+            GarageServiceRepository garageServiceRepository,
             EmailService emailService
     ) {
         this.bookingRepository = bookingRepository;
         this.garageRepository = garageRepository;
         this.vehicleRepository = vehicleRepository;
         this.mechanicRepository = mechanicRepository;
+        this.garageServiceRepository = garageServiceRepository;
         this.emailService = emailService;
     }
 
@@ -81,11 +84,19 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalArgumentException("Booking time must be in the future");
         }
 
+        GarageServiceEntity service = garageServiceRepository
+                .findById(req.getServiceId())
+                .orElseThrow(() -> new ResourceNotFoundException("Service not found"));
+
+        if (!service.getGarage().getId().equals(garage.getId())) {
+            throw new IllegalArgumentException("Service does not belong to this garage");
+        }
+
         Booking booking = Booking.builder()
                 .garage(garage)
                 .vehicle(vehicle)
                 .customer(vehicle.getOwner())
-                .serviceType(req.getServiceType())
+                .service(service)
                 .bookingTime(req.getBookingTime())
                 .status(BookingStatus.PENDING)
                 .details(req.getDetails())
@@ -103,7 +114,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     // -------------------------------------------------
-    // ACCEPT BOOKING  ✅ (THIS FIXES YOUR ERROR)
+    // ACCEPT BOOKING
     // -------------------------------------------------
     @Override
     public Booking acceptBooking(Long bookingId, Long requesterId, String requesterRole) {
@@ -159,7 +170,8 @@ public class BookingServiceImpl implements BookingService {
     // ASSIGN MECHANIC
     // -------------------------------------------------
     @Override
-    public Booking assignMechanic(Long bookingId, Long mechanicId, Long requesterId, String requesterRole) {
+    public Booking assignMechanic(Long bookingId, Long mechanicId,
+                                  Long requesterId, String requesterRole) {
 
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
@@ -275,4 +287,3 @@ public class BookingServiceImpl implements BookingService {
         return bookingRepository.save(booking);
     }
 }
-//done with backend

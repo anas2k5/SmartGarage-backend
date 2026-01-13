@@ -102,8 +102,14 @@ public class InvoicePdfServiceImpl implements InvoicePdfService {
             PdfPTable serviceTable = new PdfPTable(2);
             serviceTable.setWidthPercentage(100);
 
-            serviceTable.addCell(makeCell("Service Type:", bold));
-            serviceTable.addCell(makeCell(booking.getServiceType(), normal));
+            serviceTable.addCell(makeCell("Service:", bold));
+            serviceTable.addCell(
+                    makeCell(
+                            booking.getService() != null ? booking.getService().getName() : "-",
+                            normal
+                    )
+            );
+
 
             serviceTable.addCell(makeCell("Booking Time:", bold));
             serviceTable.addCell(makeCell(booking.getBookingTime() != null ? dtf.format(booking.getBookingTime()) : "-", normal));

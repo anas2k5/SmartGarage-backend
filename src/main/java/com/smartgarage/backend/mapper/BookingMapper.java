@@ -16,9 +16,12 @@ public class BookingMapper {
                 .customerId(b.getCustomer() != null ? b.getCustomer().getId() : null)
                 .customerEmail(b.getCustomer() != null ? b.getCustomer().getEmail() : null)
                 .vehicleId(b.getVehicle() != null ? b.getVehicle().getId() : null)
-                // NOTE: change getPlateNumber() to match your Vehicle entity getter if different
-                .vehiclePlate(b.getVehicle() != null ? safeGetVehiclePlate(b.getVehicle()) : null)
-                .serviceType(b.getServiceType())
+                .vehiclePlate(
+                        b.getVehicle() != null ? b.getVehicle().getPlateNumber() : null
+                )
+                .serviceType(
+                        b.getService() != null ? b.getService().getName() : null
+                )
                 .bookingTime(b.getBookingTime())
                 .status(b.getStatus() != null ? b.getStatus().name() : null)
                 .details(b.getDetails())
@@ -34,25 +37,5 @@ public class BookingMapper {
         }
 
         return resp;
-    }
-
-    // helper to avoid compile issues — adapt if your Vehicle class uses a different getter
-    private static String safeGetVehiclePlate(Object vehicle) {
-        try {
-            // try common getter names
-            try {
-                return (String) vehicle.getClass().getMethod("getPlateNumber").invoke(vehicle);
-            } catch (NoSuchMethodException ignored) {}
-            try {
-                return (String) vehicle.getClass().getMethod("getPlate").invoke(vehicle);
-            } catch (NoSuchMethodException ignored) {}
-            try {
-                return (String) vehicle.getClass().getMethod("getPlateNo").invoke(vehicle);
-            } catch (NoSuchMethodException ignored) {}
-            // fallback to toString
-            return vehicle.toString();
-        } catch (Exception ex) {
-            return null;
-        }
     }
 }
