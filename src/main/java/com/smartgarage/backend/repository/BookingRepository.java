@@ -11,6 +11,9 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     List<Booking> findByGarageId(Long garageId);
 
-    // NEW: all bookings for garages owned by a specific owner
-    List<Booking> findByGarageOwnerId(Long ownerId);
+    // ✅ REQUIRED FOR OWNER FLOW
+    List<Booking> findByGarageIdOrderByBookingTimeDesc(Long garageId);
+
+    List<Booking> findByGarage_Owner_Id(Long ownerId);
+
 }

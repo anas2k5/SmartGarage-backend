@@ -55,7 +55,7 @@ public class BookingController {
     }
 
     // --------------------
-    // GET MY BOOKINGS (JWT BASED) ✅ NEW
+    // GET MY BOOKINGS
     // --------------------
     @GetMapping("/me")
     public ResponseEntity<?> getMyBookings(Principal principal) {
@@ -65,28 +65,30 @@ public class BookingController {
 
         User me = maybeUser.get();
 
-        List<BookingResponse> resp = bookingService.byCustomer(me.getId())
-                .stream()
-                .map(BookingMapper::toResponse)
-                .toList();
-
-        return ResponseEntity.ok(resp);
+        return ResponseEntity.ok(
+                bookingService.byCustomer(me.getId())
+                        .stream()
+                        .map(BookingMapper::toResponse)
+                        .toList()
+        );
     }
 
     // --------------------
-    // GET BY CUSTOMER (OLD – CAN STAY)
+    // ✅ OWNER: GET BOOKINGS BY GARAGE (FIX)
     // --------------------
-    @GetMapping("/customer/{id}")
-    public ResponseEntity<?> getByCustomer(@PathVariable Long id, Principal principal) {
+    @GetMapping("/garage/{garageId}")
+    public ResponseEntity<?> getBookingsByGarage(
+            @PathVariable Long garageId,
+            Principal principal
+    ) {
         Optional<User> maybeUser = getAuthenticatedUser(principal);
         if (maybeUser.isEmpty())
             return ResponseEntity.status(401).body("Unauthenticated");
 
-        User me = maybeUser.get();
-        if (!me.getId().equals(id))
-            return ResponseEntity.status(403).body("Forbidden");
+        User owner = maybeUser.get();
 
-        List<BookingResponse> resp = bookingService.byCustomer(id)
+        List<BookingResponse> resp = bookingService
+                .getBookingsByGarage(garageId, owner.getEmail())
                 .stream()
                 .map(BookingMapper::toResponse)
                 .toList();
@@ -118,6 +120,7 @@ public class BookingController {
             return ResponseEntity.status(401).body("Unauthenticated");
 
         User actor = maybeUser.get();
+
         Booking updated = bookingService.updateBookingStatus(
                 id,
                 req.getStatus(),
@@ -142,6 +145,7 @@ public class BookingController {
             return ResponseEntity.status(401).body("Unauthenticated");
 
         User actor = maybeUser.get();
+
         Booking updated = bookingService.assignMechanic(
                 id,
                 mechanicId,
@@ -153,66 +157,16 @@ public class BookingController {
     }
 
     // --------------------
-    // UPDATE ESTIMATED COST
-    // --------------------
-    @PutMapping("/{id}/estimate")
-    public ResponseEntity<?> updateEstimatedCost(
-            @PathVariable Long id,
-            @Valid @RequestBody UpdateEstimatedCostRequest req,
-            Principal principal
-    ) {
-        Optional<User> maybeUser = getAuthenticatedUser(principal);
-        if (maybeUser.isEmpty())
-            return ResponseEntity.status(401).body("Unauthenticated");
-
-        User actor = maybeUser.get();
-        Booking updated = bookingService.updateEstimatedCost(
-                id,
-                req.getEstimatedCost(),
-                actor.getId(),
-                actor.getRole()
-        );
-
-        return ResponseEntity.ok(BookingMapper.toResponse(updated));
-    }
-
-    // --------------------
-    // UPDATE FINAL COST
-    // --------------------
-    @PutMapping("/{id}/final-cost")
-    public ResponseEntity<?> updateFinalCost(
-            @PathVariable Long id,
-            @Valid @RequestBody UpdateFinalCostRequest req,
-            Principal principal
-    ) {
-        Optional<User> maybeUser = getAuthenticatedUser(principal);
-        if (maybeUser.isEmpty())
-            return ResponseEntity.status(401).body("Unauthenticated");
-
-        User actor = maybeUser.get();
-        Booking updated = bookingService.updateFinalCost(
-                id,
-                req.getFinalCost(),
-                actor.getId(),
-                actor.getRole()
-        );
-
-        return ResponseEntity.ok(BookingMapper.toResponse(updated));
-    }
-
-    // --------------------
-    // OWNER / ADMIN ACCEPT BOOKING
+    // ACCEPT BOOKING
     // --------------------
     @PutMapping("/{id}/accept")
-    public ResponseEntity<?> acceptBooking(
-            @PathVariable Long id,
-            Principal principal
-    ) {
+    public ResponseEntity<?> acceptBooking(@PathVariable Long id, Principal principal) {
         Optional<User> maybeUser = getAuthenticatedUser(principal);
         if (maybeUser.isEmpty())
             return ResponseEntity.status(401).body("Unauthenticated");
 
         User actor = maybeUser.get();
+
         Booking updated = bookingService.acceptBooking(
                 id,
                 actor.getId(),

@@ -82,7 +82,8 @@ public class DashboardServiceImpl implements DashboardService {
         userRepository.findById(ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
 
-        List<Booking> bookings = bookingRepository.findByGarageOwnerId(ownerId);
+        List<Booking> bookings =bookingRepository.findByGarage_Owner_Id(ownerId);
+
 
         long total = bookings.size();
         long pending = bookings.stream().filter(b -> b.getStatus() == BookingStatus.PENDING).count();

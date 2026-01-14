@@ -8,25 +8,52 @@ import java.util.Optional;
 
 public interface BookingService {
 
+    // --------------------
+    // CREATE
+    // --------------------
     Booking saveFromRequest(BookingRequest req);
 
+    // --------------------
+    // FETCH
+    // --------------------
     List<Booking> byCustomer(Long customerId);
-
-    List<Booking> byGarage(Long garageId);
-
     Optional<Booking> byId(Long id);
 
-    // Assign mechanic
-    Booking assignMechanic(Long bookingId, Long mechanicId, Long requesterId, String requesterRole);
+    // --------------------
+    // OWNER
+    // --------------------
+    List<Booking> getBookingsByGarage(Long garageId, String ownerEmail);
 
-    // Update status
-    Booking updateBookingStatus(Long bookingId, String newStatus, Long requesterId, String requesterRole);
-
-    // ✅ NEW: Accept booking (Owner/Admin)
+    // --------------------
+    // ACTIONS
+    // --------------------
     Booking acceptBooking(Long bookingId, Long requesterId, String requesterRole);
 
-    // Costs
-    Booking updateEstimatedCost(Long bookingId, Double estimatedCost, Long requesterId, String requesterRole);
+    Booking assignMechanic(
+            Long bookingId,
+            Long mechanicId,
+            Long requesterId,
+            String requesterRole
+    );
 
-    Booking updateFinalCost(Long bookingId, Double finalCost, Long requesterId, String requesterRole);
+    Booking updateBookingStatus(
+            Long bookingId,
+            String newStatus,
+            Long requesterId,
+            String requesterRole
+    );
+
+    Booking updateEstimatedCost(
+            Long bookingId,
+            Double estimatedCost,
+            Long requesterId,
+            String requesterRole
+    );
+
+    Booking updateFinalCost(
+            Long bookingId,
+            Double finalCost,
+            Long requesterId,
+            String requesterRole
+    );
 }
