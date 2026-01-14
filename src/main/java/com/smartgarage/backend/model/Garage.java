@@ -1,10 +1,12 @@
 package com.smartgarage.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "garages")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Garage {
 
     @Id
@@ -21,6 +23,7 @@ public class Garage {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
+    @JsonIgnoreProperties({"password", "hibernateLazyInitializer", "handler"})
     private User owner;
 
     @Column(name = "created_at", nullable = false, updatable = false)
