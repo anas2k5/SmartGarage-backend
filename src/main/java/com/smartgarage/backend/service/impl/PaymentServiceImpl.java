@@ -15,6 +15,8 @@ import com.smartgarage.backend.repository.PaymentRepository;
 import com.smartgarage.backend.service.EmailService;
 import com.smartgarage.backend.service.InvoicePdfService;
 import com.smartgarage.backend.service.PaymentService;
+import com.stripe.model.PaymentIntent;
+import com.stripe.param.PaymentIntentCreateParams;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,30 +33,69 @@ public class PaymentServiceImpl implements PaymentService {
     private final EmailService emailService;
     private final InvoicePdfService invoicePdfService;
 
+    // ----------------------------
+    // INITIATE PAYMENT (STRIPE)
+    // ----------------------------
     @Override
     @Transactional
     public PaymentResponseDTO initiatePayment(Long bookingId, PaymentInitiateRequestDTO request) {
+
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found with id: " + bookingId));
 
-        // either existing payment or new one
-        Payment payment = paymentRepository.findByBooking(booking)
-                .orElse(Payment.builder()
-                        .booking(booking)
-                        .initiatedAt(LocalDateTime.now())
-                        .build());
+        try {
+            // 1️⃣ CREATE STRIPE PAYMENT INTENT
+            PaymentIntentCreateParams params =
+                    PaymentIntentCreateParams.builder()
+                            .setAmount((long) (request.getAmount() * 100)) // ₹ → paise
+                            .setCurrency("inr")
+                            .putMetadata("bookingId", bookingId.toString())
+                            .build();
 
-        payment.setAmount(request.getAmount());
-        payment.setMethod(request.getMethod());
-        payment.setStatus(PaymentStatus.PENDING);
+            PaymentIntent intent = PaymentIntent.create(params);
 
-        Payment saved = paymentRepository.save(payment);
-        return toPaymentDto(saved);
+            // 2️⃣ SAVE OR UPDATE PAYMENT IN DB
+            Payment payment = paymentRepository.findByBooking(booking)
+                    .orElse(Payment.builder()
+                            .booking(booking)
+                            .initiatedAt(LocalDateTime.now())
+                            .build());
+
+            payment.setAmount(request.getAmount());
+            payment.setMethod(request.getMethod());
+            payment.setStatus(PaymentStatus.PENDING);
+            payment.setTransactionId(intent.getId());
+
+            Payment saved = paymentRepository.save(payment);
+
+            // 3️⃣ RETURN CLIENT SECRET TO FLUTTER
+            return PaymentResponseDTO.builder()
+                    .id(saved.getId())
+                    .bookingId(bookingId)
+                    .amount(saved.getAmount())
+                    .method(saved.getMethod())
+                    .status(saved.getStatus())
+
+                    .transactionId(intent.getId())          // ✅ PI ID
+                    .clientSecret(intent.getClientSecret())// ✅ FOR FLUTTER
+
+                    .initiatedAt(saved.getInitiatedAt())
+                    .completedAt(null)
+                    .build();
+
+
+        } catch (Exception e) {
+            throw new RuntimeException("Stripe payment failed: " + e.getMessage());
+        }
     }
 
+    // ----------------------------
+    // CONFIRM PAYMENT
+    // ----------------------------
     @Override
     @Transactional
     public PaymentResponseDTO confirmPayment(Long bookingId, PaymentConfirmRequestDTO request) {
+
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found with id: " + bookingId));
 
@@ -73,11 +114,13 @@ public class PaymentServiceImpl implements PaymentService {
 
         Payment savedPayment = paymentRepository.save(payment);
 
-        // If success → create/update invoice + update booking status + send email
+        // ----------------------------
+        // SUCCESS FLOW
+        // ----------------------------
         if (request.isSuccess()) {
-            // create or update invoice (avoid duplicate key error)
-            Invoice invoice = invoiceRepository.findByBooking(booking)
-                    .orElse(null);
+
+            // 1️⃣ CREATE / UPDATE INVOICE
+            Invoice invoice = invoiceRepository.findByBooking(booking).orElse(null);
 
             if (invoice == null) {
                 invoice = Invoice.builder()
@@ -95,43 +138,51 @@ public class PaymentServiceImpl implements PaymentService {
 
             invoiceRepository.save(invoice);
 
-            // mark booking as COMPLETED
+            // 2️⃣ MARK BOOKING COMPLETED
             booking.setStatus(BookingStatus.COMPLETED);
             bookingRepository.save(booking);
 
-            // send email to CUSTOMER with PDF invoice attached
+            // 3️⃣ SEND EMAIL WITH PDF INVOICE
             try {
-                String to = booking.getCustomer().getEmail();   // 👈 now dynamic
+                String to = booking.getCustomer().getEmail();
 
-                System.out.println(">>> Sending PAYMENT email (with PDF invoice) to: " + to);
+                System.out.println(">>> Sending PAYMENT email (PDF invoice) to: " + to);
 
                 String subject = "Payment Successful for Booking #" + booking.getId();
                 String text = "Hi,\n\n"
                         + "We have received your payment of ₹" + request.getAmountPaid()
-                        + " for booking #" + booking.getId() + ".\n"
+                        + " for booking #" + booking.getId() + ".\n\n"
                         + "Invoice Number: " + invoice.getInvoiceNumber() + "\n\n"
                         + "Your invoice PDF is attached to this email.\n\n"
                         + "Thank you for using Smart Garage.\n\n"
                         + "Regards,\nSmart Garage Team";
 
-                // generate PDF bytes for this booking
                 byte[] pdfBytes = invoicePdfService.generateInvoicePdf(bookingId);
                 String pdfFilename = "invoice-" + bookingId + ".pdf";
 
-                // use new email method
-                emailService.sendMailWithAttachment(to, subject, text, pdfBytes, pdfFilename);
+                emailService.sendMailWithAttachment(
+                        to,
+                        subject,
+                        text,
+                        pdfBytes,
+                        pdfFilename
+                );
+
             } catch (Exception ex) {
-                // avoid breaking payment flow if email or pdf generation fails
-                System.out.println("Failed to send payment email with invoice attachment: " + ex.getMessage());
+                System.out.println("Failed to send payment email: " + ex.getMessage());
             }
         }
 
         return toPaymentDto(savedPayment);
     }
 
+    // ----------------------------
+    // GET PAYMENT STATUS
+    // ----------------------------
     @Override
     @Transactional(readOnly = true)
     public PaymentResponseDTO getPaymentByBooking(Long bookingId) {
+
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found with id: " + bookingId));
 
@@ -141,9 +192,13 @@ public class PaymentServiceImpl implements PaymentService {
         return toPaymentDto(payment);
     }
 
+    // ----------------------------
+    // GET INVOICE
+    // ----------------------------
     @Override
     @Transactional(readOnly = true)
     public InvoiceDTO getInvoiceByBooking(Long bookingId) {
+
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found with id: " + bookingId));
 
@@ -153,8 +208,9 @@ public class PaymentServiceImpl implements PaymentService {
         return toInvoiceDto(invoice);
     }
 
-    // ---------- private helpers ----------
-
+    // ----------------------------
+    // HELPERS
+    // ----------------------------
     private PaymentResponseDTO toPaymentDto(Payment payment) {
         return PaymentResponseDTO.builder()
                 .id(payment.getId())

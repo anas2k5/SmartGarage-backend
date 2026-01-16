@@ -175,4 +175,53 @@ public class BookingController {
 
         return ResponseEntity.ok(BookingMapper.toResponse(updated));
     }
+    // --------------------
+// SET ESTIMATED COST
+// --------------------
+    @PutMapping("/{id}/estimated-cost")
+    public ResponseEntity<?> updateEstimatedCost(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateEstimatedCostRequest req,
+            Principal principal
+    ) {
+        Optional<User> maybeUser = getAuthenticatedUser(principal);
+        if (maybeUser.isEmpty())
+            return ResponseEntity.status(401).body("Unauthenticated");
+
+        User actor = maybeUser.get();
+
+        Booking updated = bookingService.updateEstimatedCost(
+                id,
+                req.getEstimatedCost(),
+                actor.getId(),
+                actor.getRole()
+        );
+
+        return ResponseEntity.ok(BookingMapper.toResponse(updated));
+    }
+    // --------------------
+// SET FINAL COST
+// --------------------
+    @PutMapping("/{id}/final-cost")
+    public ResponseEntity<?> updateFinalCost(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateFinalCostRequest req,
+            Principal principal
+    ) {
+        Optional<User> maybeUser = getAuthenticatedUser(principal);
+        if (maybeUser.isEmpty())
+            return ResponseEntity.status(401).body("Unauthenticated");
+
+        User actor = maybeUser.get();
+
+        Booking updated = bookingService.updateFinalCost(
+                id,
+                req.getFinalCost(),
+                actor.getId(),
+                actor.getRole()
+        );
+
+        return ResponseEntity.ok(BookingMapper.toResponse(updated));
+    }
+
 }
