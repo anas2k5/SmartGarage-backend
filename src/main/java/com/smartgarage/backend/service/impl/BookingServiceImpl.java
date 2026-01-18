@@ -55,12 +55,17 @@ public class BookingServiceImpl implements BookingService {
     private static final Set<BookingStatus> IN_PROGRESS_NEXT =
             EnumSet.of(BookingStatus.COMPLETED);
 
+    private static final Set<BookingStatus> COMPLETED_NEXT =
+            EnumSet.of(BookingStatus.PAID);
+
     private boolean isValidTransition(BookingStatus current, BookingStatus next) {
         return switch (current) {
             case PENDING -> PENDING_NEXT.contains(next);
             case ACCEPTED -> ACCEPTED_NEXT.contains(next);
             case IN_PROGRESS -> IN_PROGRESS_NEXT.contains(next);
-            case COMPLETED, CANCELLED -> false;
+            case COMPLETED -> COMPLETED_NEXT.contains(next);
+            case PAID, CANCELLED -> false; // 🔒 Terminal states
+            default -> false;
         };
     }
 
@@ -113,6 +118,10 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
 
+        if (booking.getStatus() == BookingStatus.PAID) {
+            throw new IllegalStateException("Paid booking cannot be changed");
+        }
+
         boolean isAdmin = "ADMIN".equalsIgnoreCase(requesterRole);
         boolean isOwner = booking.getGarage().getOwner().getId().equals(requesterId);
 
@@ -129,7 +138,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     // -------------------------------------------------
-    // ASSIGN MECHANIC ✅ FIXED
+    // ASSIGN MECHANIC
     // -------------------------------------------------
     @Override
     public Booking assignMechanic(
@@ -140,6 +149,10 @@ public class BookingServiceImpl implements BookingService {
     ) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+        if (booking.getStatus() == BookingStatus.PAID) {
+            throw new IllegalStateException("Paid booking cannot be changed");
+        }
 
         Mechanic mechanic = mechanicRepository.findById(mechanicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Mechanic not found"));
@@ -189,7 +202,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     // -------------------------------------------------
-    // UPDATE STATUS
+    // UPDATE STATUS (🔥 FIXED ROLE + CANCEL LOGIC)
     // -------------------------------------------------
     @Override
     public Booking updateBookingStatus(
@@ -204,11 +217,34 @@ public class BookingServiceImpl implements BookingService {
 
         BookingStatus nextStatus = BookingStatus.valueOf(newStatus);
 
+        // 🔒 HARD LOCKS
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new IllegalStateException("Booking is already cancelled");
+        }
+
+        if (booking.getStatus() == BookingStatus.PAID) {
+            throw new IllegalStateException("Paid booking cannot be changed");
+        }
+
         boolean isAdmin = "ADMIN".equalsIgnoreCase(requesterRole);
         boolean isOwner = booking.getGarage().getOwner().getId().equals(requesterId);
+        boolean isCustomer = booking.getCustomer().getId().equals(requesterId);
 
-        if (!isAdmin && !isOwner) {
-            throw new ForbiddenException("Not allowed");
+        // ----------------------------
+        // CUSTOMER CAN CANCEL OWN BOOKING
+        // ----------------------------
+        if (nextStatus == BookingStatus.CANCELLED) {
+            if (!isCustomer && !isAdmin && !isOwner) {
+                throw new ForbiddenException("Only customer, owner or admin can cancel booking");
+            }
+        }
+        // ----------------------------
+        // OWNER / ADMIN CONTROL EVERYTHING ELSE
+        // ----------------------------
+        else {
+            if (!isAdmin && !isOwner) {
+                throw new ForbiddenException("Only owner or admin can update booking status");
+            }
         }
 
         if (!isValidTransition(booking.getStatus(), nextStatus)) {
@@ -231,6 +267,10 @@ public class BookingServiceImpl implements BookingService {
     ) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+        if (booking.getStatus() == BookingStatus.PAID) {
+            throw new IllegalStateException("Paid booking cannot be changed");
+        }
 
         boolean isAdmin = "ADMIN".equalsIgnoreCase(requesterRole);
         boolean isOwner = booking.getGarage().getOwner().getId().equals(requesterId);
@@ -255,6 +295,10 @@ public class BookingServiceImpl implements BookingService {
     ) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+        if (booking.getStatus() == BookingStatus.PAID) {
+            throw new IllegalStateException("Paid booking cannot be changed");
+        }
 
         boolean isAdmin = "ADMIN".equalsIgnoreCase(requesterRole);
         boolean isOwner = booking.getGarage().getOwner().getId().equals(requesterId);

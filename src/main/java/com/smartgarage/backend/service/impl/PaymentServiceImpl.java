@@ -138,9 +138,10 @@ public class PaymentServiceImpl implements PaymentService {
 
             invoiceRepository.save(invoice);
 
-            // 2️⃣ MARK BOOKING COMPLETED
-            booking.setStatus(BookingStatus.COMPLETED);
+            // 2️⃣ MARK BOOKING AS PAID
+            booking.setStatus(BookingStatus.PAID);
             bookingRepository.save(booking);
+
 
             // 3️⃣ SEND EMAIL WITH PDF INVOICE
             try {
@@ -238,4 +239,5 @@ public class PaymentServiceImpl implements PaymentService {
     private String generateInvoiceNumber(Booking booking) {
         return "INV-" + booking.getId() + "-" + System.currentTimeMillis();
     }
+
 }

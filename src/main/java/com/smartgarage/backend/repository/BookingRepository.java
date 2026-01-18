@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
 
+    // ✅ Customer sees ALL bookings (including CANCELLED)
     List<Booking> findByCustomerId(Long customerId);
 
     List<Booking> findByGarageId(Long garageId);
@@ -16,4 +17,5 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     List<Booking> findByGarage_Owner_Id(Long ownerId);
 
+    List<Booking> findActiveByCustomerId(Long customerId);
 }
