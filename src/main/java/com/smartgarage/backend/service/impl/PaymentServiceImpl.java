@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -208,6 +209,18 @@ public class PaymentServiceImpl implements PaymentService {
 
         return toInvoiceDto(invoice);
     }
+    // ================= PAYMENT HISTORY =================
+    @Override
+    @Transactional(readOnly = true)
+    public List<PaymentResponseDTO> getPaymentsByCustomer(Long customerId) {
+
+        return paymentRepository
+                .findByBookingCustomerId(customerId)
+                .stream()
+                .map(this::toPaymentDto)
+                .toList();
+    }
+
 
     // ----------------------------
     // HELPERS

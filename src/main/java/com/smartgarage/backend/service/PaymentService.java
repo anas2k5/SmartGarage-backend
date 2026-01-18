@@ -5,6 +5,8 @@ import com.smartgarage.backend.dto.PaymentConfirmRequestDTO;
 import com.smartgarage.backend.dto.PaymentInitiateRequestDTO;
 import com.smartgarage.backend.dto.PaymentResponseDTO;
 
+import java.util.List;
+
 public interface PaymentService {
 
     PaymentResponseDTO initiatePayment(Long bookingId, PaymentInitiateRequestDTO request);
@@ -14,4 +16,7 @@ public interface PaymentService {
     PaymentResponseDTO getPaymentByBooking(Long bookingId);
 
     InvoiceDTO getInvoiceByBooking(Long bookingId);
+
+    // ✅ NEW
+    List<PaymentResponseDTO> getPaymentsByCustomer(Long customerId);
 }

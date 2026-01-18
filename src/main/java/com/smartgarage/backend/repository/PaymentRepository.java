@@ -13,9 +13,18 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     Optional<Payment> findByBooking(Booking booking);
     Optional<Payment> findByBookingId(Long bookingId);
 
-    // all successful payments for a specific customer
-    List<Payment> findByBookingCustomerIdAndStatus(Long customerId, PaymentStatus status);
+    // ✅ CUSTOMER HISTORY
+    List<Payment> findByBookingCustomerId(Long customerId);
 
-    // all successful payments for all bookings of garages owned by a specific owner
-    List<Payment> findByBookingGarageOwnerIdAndStatus(Long ownerId, PaymentStatus status);
+    // ✅ CUSTOMER TOTAL SPENT
+    List<Payment> findByBookingCustomerIdAndStatus(
+            Long customerId,
+            PaymentStatus status
+    );
+
+    // ✅ OWNER REVENUE
+    List<Payment> findByBookingGarageOwnerIdAndStatus(
+            Long ownerId,
+            PaymentStatus status
+    );
 }
