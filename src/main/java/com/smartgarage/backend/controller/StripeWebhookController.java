@@ -7,7 +7,6 @@ import com.smartgarage.backend.service.EmailService;
 import com.smartgarage.backend.service.InvoicePdfService;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
-import com.stripe.model.PaymentIntent;
 import com.stripe.net.Webhook;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +15,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -37,6 +35,7 @@ public class StripeWebhookController {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    // ================= MAIN HANDLER =================
     @PostMapping
     public ResponseEntity<String> handleWebhook(HttpServletRequest request) {
         try {
@@ -62,14 +61,17 @@ public class StripeWebhookController {
         } catch (SignatureVerificationException e) {
             System.out.println("❌ Invalid Stripe signature");
             return ResponseEntity.status(400).body("Invalid signature");
+
         } catch (Exception e) {
             e.printStackTrace();
+            // Always return 200 to prevent Stripe retries storm
             return ResponseEntity.ok("Handled");
         }
     }
 
-    // ================= RAW PARSE SUCCESS HANDLER =================
+    // ================= SUCCESS HANDLER =================
     @Transactional
+    @SuppressWarnings("unchecked")
     public void handleSuccessRaw(String payload) throws Exception {
 
         Map<String, Object> root =
@@ -81,6 +83,9 @@ public class StripeWebhookController {
         Map<String, Object> obj =
                 (Map<String, Object>) data.get("object");
 
+        // ----------------------------
+        // METADATA VALIDATION
+        // ----------------------------
         Map<String, String> metadata =
                 (Map<String, String>) obj.get("metadata");
 
@@ -89,32 +94,65 @@ public class StripeWebhookController {
             return;
         }
 
-        Long bookingId = Long.parseLong(metadata.get("bookingId"));
+        Long bookingId =
+                Long.parseLong(metadata.get("bookingId"));
 
-        Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new RuntimeException("Booking not found"));
+        String stripeIntentId =
+                (String) obj.get("id");
 
-        Payment payment = paymentRepository.findByBooking(booking)
-                .orElseThrow(() -> new RuntimeException("Payment not found"));
+        // ----------------------------
+        // LOAD DB OBJECTS
+        // ----------------------------
+        Booking booking = bookingRepository
+                .findById(bookingId)
+                .orElseThrow(() ->
+                        new RuntimeException("Booking not found: " + bookingId)
+                );
 
+        Payment payment = paymentRepository
+                .findByBooking(booking)
+                .orElseThrow(() ->
+                        new RuntimeException("Payment not found for booking " + bookingId)
+                );
+
+        // ----------------------------
+        // SECURITY CHECK
+        // ----------------------------
+        if (!stripeIntentId.equals(payment.getTransactionId())) {
+            System.out.println("❌ PaymentIntent mismatch detected");
+            System.out.println("DB TXN: " + payment.getTransactionId());
+            System.out.println("Stripe TXN: " + stripeIntentId);
+            return;
+        }
+
+        // ----------------------------
+        // IDEMPOTENCY LOCK
+        // ----------------------------
         if (payment.getStatus() == PaymentStatus.SUCCESS) {
             System.out.println("⚠️ Duplicate webhook ignored for booking " + bookingId);
             return;
         }
 
-        // 1️⃣ PAYMENT
+        // ----------------------------
+        // 1️⃣ UPDATE PAYMENT
+        // ----------------------------
         payment.setStatus(PaymentStatus.SUCCESS);
         payment.setCompletedAt(LocalDateTime.now());
         paymentRepository.save(payment);
 
-        // 2️⃣ BOOKING
+        // ----------------------------
+        // 2️⃣ UPDATE BOOKING
+        // ----------------------------
         booking.setStatus(BookingStatus.PAID);
         bookingRepository.saveAndFlush(booking);
 
         System.out.println("✅ Booking " + bookingId + " marked as PAID");
 
-        // 3️⃣ INVOICE
-        Invoice invoice = invoiceRepository.findByBooking(booking)
+        // ----------------------------
+        // 3️⃣ CREATE / FETCH INVOICE
+        // ----------------------------
+        Invoice invoice = invoiceRepository
+                .findByBooking(booking)
                 .orElse(
                         Invoice.builder()
                                 .booking(booking)
@@ -129,9 +167,12 @@ public class StripeWebhookController {
 
         invoiceRepository.save(invoice);
 
-        // 4️⃣ EMAIL (SAFE)
+        // ----------------------------
+        // 4️⃣ EMAIL CUSTOMER
+        // ----------------------------
         try {
-            byte[] pdf = invoicePdfService.generateInvoicePdf(bookingId);
+            byte[] pdf =
+                    invoicePdfService.generateInvoicePdf(bookingId);
 
             emailService.sendMailWithAttachment(
                     booking.getCustomer().getEmail(),
@@ -141,7 +182,7 @@ public class StripeWebhookController {
                     "invoice-" + bookingId + ".pdf"
             );
 
-            System.out.println("📧 Invoice email sent");
+            System.out.println("📧 Invoice email sent to customer");
 
         } catch (Exception e) {
             System.out.println("⚠️ Email failed: " + e.getMessage());
