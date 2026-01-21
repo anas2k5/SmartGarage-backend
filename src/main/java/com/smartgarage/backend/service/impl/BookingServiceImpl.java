@@ -64,7 +64,7 @@ public class BookingServiceImpl implements BookingService {
             case ACCEPTED -> ACCEPTED_NEXT.contains(next);
             case IN_PROGRESS -> IN_PROGRESS_NEXT.contains(next);
             case COMPLETED -> COMPLETED_NEXT.contains(next);
-            case PAID, CANCELLED -> false; // 🔒 Terminal states
+            case PAID, CANCELLED -> false;
             default -> false;
         };
     }
@@ -107,6 +107,36 @@ public class BookingServiceImpl implements BookingService {
                 .build();
 
         return bookingRepository.save(booking);
+    }
+
+    // -------------------------------------------------
+    // FETCH (🔥 FIXED — FORCE FRESH DB READ)
+    // -------------------------------------------------
+    @Override
+    public List<Booking> byCustomer(Long customerId) {
+        // ✅ This fixes PAID status not updating in Flutter
+        return bookingRepository.findFreshByCustomerId(customerId);
+    }
+
+    @Override
+    public Optional<Booking> byId(Long id) {
+        return bookingRepository.findById(id);
+    }
+
+    // -------------------------------------------------
+    // OWNER: FETCH BOOKINGS BY GARAGE
+    // -------------------------------------------------
+    @Override
+    public List<Booking> getBookingsByGarage(Long garageId, String ownerEmail) {
+
+        Garage garage = garageRepository.findById(garageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Garage not found"));
+
+        if (!garage.getOwner().getEmail().equals(ownerEmail)) {
+            throw new ForbiddenException("Not your garage");
+        }
+
+        return bookingRepository.findByGarageIdOrderByBookingTimeDesc(garageId);
     }
 
     // -------------------------------------------------
@@ -173,36 +203,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     // -------------------------------------------------
-    // FETCH
-    // -------------------------------------------------
-    @Override
-    public List<Booking> byCustomer(Long customerId) {
-        return bookingRepository.findByCustomerId(customerId);
-    }
-
-    @Override
-    public Optional<Booking> byId(Long id) {
-        return bookingRepository.findById(id);
-    }
-
-    // -------------------------------------------------
-    // OWNER: FETCH BOOKINGS BY GARAGE
-    // -------------------------------------------------
-    @Override
-    public List<Booking> getBookingsByGarage(Long garageId, String ownerEmail) {
-
-        Garage garage = garageRepository.findById(garageId)
-                .orElseThrow(() -> new ResourceNotFoundException("Garage not found"));
-
-        if (!garage.getOwner().getEmail().equals(ownerEmail)) {
-            throw new ForbiddenException("Not your garage");
-        }
-
-        return bookingRepository.findByGarageIdOrderByBookingTimeDesc(garageId);
-    }
-
-    // -------------------------------------------------
-    // UPDATE STATUS (🔥 FIXED ROLE + CANCEL LOGIC)
+    // UPDATE STATUS
     // -------------------------------------------------
     @Override
     public Booking updateBookingStatus(
@@ -217,7 +218,6 @@ public class BookingServiceImpl implements BookingService {
 
         BookingStatus nextStatus = BookingStatus.valueOf(newStatus);
 
-        // 🔒 HARD LOCKS
         if (booking.getStatus() == BookingStatus.CANCELLED) {
             throw new IllegalStateException("Booking is already cancelled");
         }
@@ -230,18 +230,11 @@ public class BookingServiceImpl implements BookingService {
         boolean isOwner = booking.getGarage().getOwner().getId().equals(requesterId);
         boolean isCustomer = booking.getCustomer().getId().equals(requesterId);
 
-        // ----------------------------
-        // CUSTOMER CAN CANCEL OWN BOOKING
-        // ----------------------------
         if (nextStatus == BookingStatus.CANCELLED) {
             if (!isCustomer && !isAdmin && !isOwner) {
                 throw new ForbiddenException("Only customer, owner or admin can cancel booking");
             }
-        }
-        // ----------------------------
-        // OWNER / ADMIN CONTROL EVERYTHING ELSE
-        // ----------------------------
-        else {
+        } else {
             if (!isAdmin && !isOwner) {
                 throw new ForbiddenException("Only owner or admin can update booking status");
             }

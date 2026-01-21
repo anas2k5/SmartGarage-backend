@@ -1,7 +1,5 @@
 package com.smartgarage.backend.service;
 
-import com.smartgarage.backend.dto.InvoiceDTO;
-import com.smartgarage.backend.dto.PaymentConfirmRequestDTO;
 import com.smartgarage.backend.dto.PaymentInitiateRequestDTO;
 import com.smartgarage.backend.dto.PaymentResponseDTO;
 
@@ -9,14 +7,19 @@ import java.util.List;
 
 public interface PaymentService {
 
-    PaymentResponseDTO initiatePayment(Long bookingId, PaymentInitiateRequestDTO request);
+    // ================= INITIATE STRIPE PAYMENT =================
+    PaymentResponseDTO initiatePayment(
+            Long bookingId,
+            PaymentInitiateRequestDTO request
+    );
 
-    PaymentResponseDTO confirmPayment(Long bookingId, PaymentConfirmRequestDTO request);
+    // ================= PAYMENT STATUS (FLUTTER POLLS) =================
+    PaymentResponseDTO getPaymentByBooking(
+            Long bookingId
+    );
 
-    PaymentResponseDTO getPaymentByBooking(Long bookingId);
-
-    InvoiceDTO getInvoiceByBooking(Long bookingId);
-
-    // ✅ NEW
-    List<PaymentResponseDTO> getPaymentsByCustomer(Long customerId);
+    // ================= PAYMENT HISTORY =================
+    List<PaymentResponseDTO> getPaymentsByCustomer(
+            Long customerId
+    );
 }

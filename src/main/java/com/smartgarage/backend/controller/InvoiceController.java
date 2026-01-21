@@ -1,10 +1,11 @@
 package com.smartgarage.backend.controller;
 
-import com.smartgarage.backend.dto.InvoiceDTO;
+import com.smartgarage.backend.model.Invoice;
+import com.smartgarage.backend.repository.InvoiceRepository;
 import com.smartgarage.backend.service.InvoicePdfService;
-import com.smartgarage.backend.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -12,19 +13,36 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class InvoiceController {
 
-    private final PaymentService paymentService;
+    private final InvoiceRepository invoiceRepository;
     private final InvoicePdfService invoicePdfService;
 
-    // GET /api/invoices/{bookingId} -> JSON
+    // ================= GET INVOICE (JSON) =================
     @GetMapping("/{bookingId}")
-    public ResponseEntity<InvoiceDTO> getInvoiceByBooking(@PathVariable Long bookingId) {
-        return ResponseEntity.ok(paymentService.getInvoiceByBooking(bookingId));
+    @PreAuthorize("hasAnyRole('CUSTOMER','OWNER','ADMIN')")
+    public ResponseEntity<?> getInvoice(
+            @PathVariable Long bookingId
+    ) {
+
+        Invoice invoice = invoiceRepository
+                .findByBookingId(bookingId)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Invoice not found for booking " + bookingId
+                        )
+                );
+
+        return ResponseEntity.ok(invoice);
     }
 
-    // GET /api/invoices/{bookingId}/pdf -> PDF download
+    // ================= DOWNLOAD PDF =================
     @GetMapping("/{bookingId}/pdf")
-    public ResponseEntity<byte[]> downloadInvoicePdf(@PathVariable Long bookingId) {
-        byte[] pdfBytes = invoicePdfService.generateInvoicePdf(bookingId);
+    @PreAuthorize("hasAnyRole('CUSTOMER','OWNER','ADMIN')")
+    public ResponseEntity<byte[]> downloadInvoicePdf(
+            @PathVariable Long bookingId
+    ) {
+
+        byte[] pdfBytes =
+                invoicePdfService.generateInvoicePdf(bookingId);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
@@ -34,6 +52,10 @@ public class InvoiceController {
                         .build()
         );
 
-        return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+        return new ResponseEntity<>(
+                pdfBytes,
+                headers,
+                HttpStatus.OK
+        );
     }
 }

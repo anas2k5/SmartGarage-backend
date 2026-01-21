@@ -1,6 +1,7 @@
 package com.smartgarage.backend.controller;
 
-import com.smartgarage.backend.dto.*;
+import com.smartgarage.backend.dto.PaymentInitiateRequestDTO;
+import com.smartgarage.backend.dto.PaymentResponseDTO;
 import com.smartgarage.backend.model.User;
 import com.smartgarage.backend.repository.UserRepository;
 import com.smartgarage.backend.service.InvoicePdfService;
@@ -22,61 +23,80 @@ public class PaymentController {
     private final UserRepository userRepository;
     private final InvoicePdfService invoicePdfService;
 
-    // ================= STRIPE FLOW =================
-
+    // ================= INITIATE STRIPE =================
     @PostMapping("/initiate/{bookingId}")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<PaymentResponseDTO> initiatePayment(
             @PathVariable Long bookingId,
-            @RequestBody PaymentInitiateRequestDTO request) {
-        return ResponseEntity.ok(paymentService.initiatePayment(bookingId, request));
-    }
-
-    @PutMapping("/confirm/{bookingId}")
-    @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<PaymentResponseDTO> confirmPayment(
-            @PathVariable Long bookingId,
-            @RequestBody PaymentConfirmRequestDTO request) {
-        return ResponseEntity.ok(paymentService.confirmPayment(bookingId, request));
-    }
-
-    @GetMapping("/status/{bookingId}")
-    @PreAuthorize("hasAnyRole('CUSTOMER','OWNER','ADMIN')")
-    public ResponseEntity<PaymentResponseDTO> getPaymentStatus(@PathVariable Long bookingId) {
-        return ResponseEntity.ok(paymentService.getPaymentByBooking(bookingId));
-    }
-
-    // ================= PAYMENT HISTORY =================
-
-    @GetMapping("/me")
-    @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<?> getMyPayments(Principal principal) {
-
-        Optional<User> maybeUser =
-                userRepository.findByEmail(principal.getName());
-
-        if (maybeUser.isEmpty()) {
-            return ResponseEntity.status(401).body("Unauthenticated");
-        }
-
-        User me = maybeUser.get();
+            @RequestBody PaymentInitiateRequestDTO request
+    ) {
         return ResponseEntity.ok(
-                paymentService.getPaymentsByCustomer(me.getId())
+                paymentService.initiatePayment(
+                        bookingId,
+                        request
+                )
         );
     }
 
-    // ================= DOWNLOAD INVOICE =================
+    // ================= STATUS (POLLING) =================
+    @GetMapping("/status/{bookingId}")
+    @PreAuthorize("hasAnyRole('CUSTOMER','OWNER','ADMIN')")
+    public ResponseEntity<PaymentResponseDTO> getPaymentStatus(
+            @PathVariable Long bookingId
+    ) {
+        return ResponseEntity.ok(
+                paymentService.getPaymentByBooking(
+                        bookingId
+                )
+        );
+    }
 
+    // ================= HISTORY =================
+    @GetMapping("/me")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<?> getMyPayments(
+            Principal principal
+    ) {
+
+        Optional<User> maybeUser =
+                userRepository.findByEmail(
+                        principal.getName()
+                );
+
+        if (maybeUser.isEmpty()) {
+            return ResponseEntity
+                    .status(401)
+                    .body("Unauthenticated");
+        }
+
+        return ResponseEntity.ok(
+                paymentService
+                        .getPaymentsByCustomer(
+                                maybeUser.get().getId()
+                        )
+        );
+    }
+
+    // ================= INVOICE =================
     @GetMapping("/invoice/{bookingId}/download")
     @PreAuthorize("hasAnyRole('CUSTOMER','OWNER','ADMIN')")
-    public ResponseEntity<byte[]> downloadInvoice(@PathVariable Long bookingId) {
+    public ResponseEntity<byte[]> downloadInvoice(
+            @PathVariable Long bookingId
+    ) {
 
         byte[] pdf =
-                invoicePdfService.generateInvoicePdf(bookingId);
+                invoicePdfService
+                        .generateInvoicePdf(
+                                bookingId
+                        );
 
         return ResponseEntity.ok()
-                .header("Content-Disposition",
-                        "attachment; filename=invoice-" + bookingId + ".pdf")
+                .header(
+                        "Content-Disposition",
+                        "attachment; filename=invoice-" +
+                                bookingId +
+                                ".pdf"
+                )
                 .body(pdf);
     }
 }
