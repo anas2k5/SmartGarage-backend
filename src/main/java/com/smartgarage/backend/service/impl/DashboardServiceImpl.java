@@ -9,9 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,33 +21,50 @@ public class DashboardServiceImpl implements DashboardService {
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
 
+    // ================= CUSTOMER =================
+
     @Override
     public CustomerDashboardDTO getCustomerDashboard(Long customerId) {
 
         userRepository.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
 
-        List<Booking> bookings = bookingRepository.findByCustomerId(customerId);
+        List<Booking> bookings =
+                bookingRepository.findByCustomerId(customerId);
 
         long total = bookings.size();
-        long completed = bookings.stream().filter(b -> b.getStatus() == BookingStatus.COMPLETED).count();
-        long pending = bookings.stream().filter(b -> b.getStatus() == BookingStatus.PENDING).count();
-        long ongoing = bookings.stream().filter(b -> b.getStatus() == BookingStatus.IN_PROGRESS).count();
-        long cancelled = bookings.stream().filter(b -> b.getStatus() == BookingStatus.CANCELLED).count();
+        long completed = bookings.stream()
+                .filter(b -> b.getStatus() == BookingStatus.COMPLETED)
+                .count();
+        long pending = bookings.stream()
+                .filter(b -> b.getStatus() == BookingStatus.PENDING)
+                .count();
+        long ongoing = bookings.stream()
+                .filter(b -> b.getStatus() == BookingStatus.IN_PROGRESS)
+                .count();
+        long cancelled = bookings.stream()
+                .filter(b -> b.getStatus() == BookingStatus.CANCELLED)
+                .count();
 
         Double totalSpent = paymentRepository
-                .findByBookingCustomerIdAndStatus(customerId, PaymentStatus.SUCCESS)
+                .findByBookingCustomerIdAndStatus(
+                        customerId,
+                        PaymentStatus.SUCCESS
+                )
                 .stream()
                 .map(Payment::getAmount)
-                .filter(a -> a != null)
+                .filter(Objects::nonNull)
                 .mapToDouble(Double::doubleValue)
                 .sum();
 
-        List<CustomerBookingSummaryDTO> latestBookings = bookings.stream()
-                .sorted(Comparator.comparing(Booking::getBookingTime).reversed())
-                .limit(5)
-                .map(this::toCustomerSummary)
-                .toList();
+        List<CustomerBookingSummaryDTO> latestBookings =
+                bookings.stream()
+                        .sorted(Comparator.comparing(
+                                Booking::getBookingTime
+                        ).reversed())
+                        .limit(5)
+                        .map(this::toCustomerSummary)
+                        .toList();
 
         return CustomerDashboardDTO.builder()
                 .customerId(customerId)
@@ -63,12 +78,20 @@ public class DashboardServiceImpl implements DashboardService {
                 .build();
     }
 
-    private CustomerBookingSummaryDTO toCustomerSummary(Booking booking) {
+    private CustomerBookingSummaryDTO toCustomerSummary(
+            Booking booking
+    ) {
         return CustomerBookingSummaryDTO.builder()
                 .bookingId(booking.getId())
-                .garageName(booking.getGarage() != null ? booking.getGarage().getName() : null)
+                .garageName(
+                        booking.getGarage() != null
+                                ? booking.getGarage().getName()
+                                : null
+                )
                 .serviceType(
-                        booking.getService() != null ? booking.getService().getName() : null
+                        booking.getService() != null
+                                ? booking.getService().getName()
+                                : null
                 )
                 .status(booking.getStatus())
                 .bookingTime(booking.getBookingTime())
@@ -76,39 +99,70 @@ public class DashboardServiceImpl implements DashboardService {
                 .build();
     }
 
+    // ================= OWNER =================
+
     @Override
     public OwnerDashboardDTO getOwnerDashboard(Long ownerId) {
 
         userRepository.findById(ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
 
-        List<Booking> bookings =bookingRepository.findByGarage_Owner_Id(ownerId);
-
+        List<Booking> bookings =
+                bookingRepository.findByGarage_Owner_Id(ownerId);
 
         long total = bookings.size();
-        long pending = bookings.stream().filter(b -> b.getStatus() == BookingStatus.PENDING).count();
-        long inProgress = bookings.stream().filter(b -> b.getStatus() == BookingStatus.IN_PROGRESS).count();
-        long accepted = bookings.stream().filter(b -> b.getStatus() == BookingStatus.ACCEPTED).count();
-        long completed = bookings.stream().filter(b -> b.getStatus() == BookingStatus.COMPLETED).count();
-        long cancelled = bookings.stream().filter(b -> b.getStatus() == BookingStatus.CANCELLED).count();
+        long pending = bookings.stream()
+                .filter(b -> b.getStatus() == BookingStatus.PENDING)
+                .count();
+        long inProgress = bookings.stream()
+                .filter(b -> b.getStatus() == BookingStatus.IN_PROGRESS)
+                .count();
+        long accepted = bookings.stream()
+                .filter(b -> b.getStatus() == BookingStatus.ACCEPTED)
+                .count();
+        long completed = bookings.stream()
+                .filter(b -> b.getStatus() == BookingStatus.COMPLETED)
+                .count();
+        long cancelled = bookings.stream()
+                .filter(b -> b.getStatus() == BookingStatus.CANCELLED)
+                .count();
 
-        Set<Long> garageIds = bookings.stream()
-                .map(b -> b.getGarage().getId())
-                .collect(Collectors.toSet());
+        Set<Long> garageIds =
+                bookings.stream()
+                        .map(b -> b.getGarage().getId())
+                        .collect(Collectors.toSet());
 
         Double totalRevenue = paymentRepository
-                .findByBookingGarageOwnerIdAndStatus(ownerId, PaymentStatus.SUCCESS)
+                .findByBookingGarageOwnerIdAndStatus(
+                        ownerId,
+                        PaymentStatus.SUCCESS
+                )
                 .stream()
                 .map(Payment::getAmount)
-                .filter(a -> a != null)
+                .filter(Objects::nonNull)
                 .mapToDouble(Double::doubleValue)
                 .sum();
 
-        List<OwnerBookingSummaryDTO> recentBookings = bookings.stream()
-                .sorted(Comparator.comparing(Booking::getBookingTime).reversed())
-                .limit(5)
-                .map(this::toOwnerSummary)
-                .toList();
+        // 🔥 RECENT BOOKINGS
+        List<OwnerBookingSummaryDTO> recentBookings =
+                bookings.stream()
+                        .sorted(Comparator.comparing(
+                                Booking::getBookingTime
+                        ).reversed())
+                        .limit(5)
+                        .map(this::toOwnerSummary)
+                        .toList();
+
+        // 💳 REAL RECENT PAYMENTS
+        List<OwnerPaymentSummaryDTO> recentPayments =
+                paymentRepository
+                        .findTop5ByBookingGarageOwnerIdAndStatusOrderByCompletedAtDesc(
+                                ownerId,
+                                PaymentStatus.SUCCESS
+                        )
+                        .stream()
+                        .map(this::toPaymentSummary)
+                        .toList();
 
         return OwnerDashboardDTO.builder()
                 .ownerId(ownerId)
@@ -121,10 +175,13 @@ public class DashboardServiceImpl implements DashboardService {
                 .totalRevenue(totalRevenue)
                 .activeGarages(garageIds.size())
                 .recentBookings(recentBookings)
+                .recentPayments(recentPayments)
                 .build();
     }
 
-    private OwnerBookingSummaryDTO toOwnerSummary(Booking booking) {
+    private OwnerBookingSummaryDTO toOwnerSummary(
+            Booking booking
+    ) {
         return OwnerBookingSummaryDTO.builder()
                 .bookingId(booking.getId())
                 .customerId(booking.getCustomer().getId())
@@ -132,11 +189,36 @@ public class DashboardServiceImpl implements DashboardService {
                 .garageId(booking.getGarage().getId())
                 .garageName(booking.getGarage().getName())
                 .serviceType(
-                        booking.getService() != null ? booking.getService().getName() : null
+                        booking.getService() != null
+                                ? booking.getService().getName()
+                                : null
                 )
                 .status(booking.getStatus())
                 .bookingTime(booking.getBookingTime())
                 .finalCost(booking.getFinalCost())
+                .build();
+    }
+
+    private OwnerPaymentSummaryDTO toPaymentSummary(
+            Payment payment
+    ) {
+        return OwnerPaymentSummaryDTO.builder()
+                .paymentId(payment.getId())
+                .bookingId(payment.getBooking().getId())
+                .garageName(
+                        payment.getBooking()
+                                .getGarage()
+                                .getName()
+                )
+                .customerEmail(
+                        payment.getBooking()
+                                .getCustomer()
+                                .getEmail()
+                )
+                .amount(payment.getAmount())
+                .method(payment.getMethod().name())
+                .status(payment.getStatus().name())
+                .paidAt(payment.getCompletedAt())
                 .build();
     }
 }

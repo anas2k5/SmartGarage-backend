@@ -1,7 +1,6 @@
 package com.smartgarage.backend.dto;
 
 import lombok.*;
-
 import java.util.List;
 
 @Getter
@@ -20,8 +19,12 @@ public class OwnerDashboardDTO {
     private long completedBookings;
     private long cancelledBookings;
 
-    private Double totalRevenue;      // sum of successful payments for all their garages
-    private long activeGarages;       // number of garages that have at least 1 booking
+    private Double totalRevenue;
+    private long activeGarages;
 
+    // Existing
     private List<OwnerBookingSummaryDTO> recentBookings;
+
+    // ✅ REAL PAYMENTS
+    private List<OwnerPaymentSummaryDTO> recentPayments;
 }

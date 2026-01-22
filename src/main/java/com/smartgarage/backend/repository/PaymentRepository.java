@@ -27,4 +27,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             Long ownerId,
             PaymentStatus status
     );
+    List<Payment> findTop5ByBookingGarageOwnerIdAndStatusOrderByCompletedAtDesc(
+            Long ownerId,
+            PaymentStatus status
+    );
+
 }
