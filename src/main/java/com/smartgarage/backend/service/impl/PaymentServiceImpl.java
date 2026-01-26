@@ -21,6 +21,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final BookingRepository bookingRepository;
     private final PaymentRepository paymentRepository;
 
+    // ================= INITIATE PAYMENT =================
     @Override
     @Transactional
     public PaymentResponseDTO initiatePayment(
@@ -31,18 +32,27 @@ public class PaymentServiceImpl implements PaymentService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
 
-        // 🔒 STATE VALIDATION
+        // 🔒 STATE VALIDATION (BUSINESS CORRECT)
         if (booking.getStatus() == BookingStatus.CANCELLED) {
             throw new RuntimeException("Cannot pay for cancelled booking");
         }
-        if (booking.getStatus() == BookingStatus.PAID) {
-            throw new RuntimeException("Booking already paid");
+
+        if (booking.getStatus() != BookingStatus.COMPLETED) {
+            throw new RuntimeException("Booking must be completed before payment");
         }
 
+        // 🔒 Prevent double payment
+        paymentRepository.findByBooking(booking)
+                .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                .ifPresent(p -> {
+                    throw new RuntimeException("Booking already paid");
+                });
+
         try {
+            // ================= STRIPE =================
             PaymentIntentCreateParams params =
                     PaymentIntentCreateParams.builder()
-                            .setAmount((long) (request.getAmount() * 100))
+                            .setAmount((long) (request.getAmount() * 100)) // INR in paise
                             .setCurrency("inr")
                             .putMetadata("bookingId", bookingId.toString())
                             .build();
@@ -50,6 +60,7 @@ public class PaymentServiceImpl implements PaymentService {
             PaymentIntent intent =
                     PaymentIntent.create(params);
 
+            // ================= PAYMENT ENTITY =================
             Payment payment =
                     paymentRepository.findByBooking(booking)
                             .orElseGet(() -> Payment.builder()
@@ -72,6 +83,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
+    // ================= GET PAYMENT =================
     @Override
     @Transactional(readOnly = true)
     public PaymentResponseDTO getPaymentByBooking(Long bookingId) {
@@ -85,6 +97,7 @@ public class PaymentServiceImpl implements PaymentService {
         return toDto(payment, null);
     }
 
+    // ================= CUSTOMER PAYMENTS =================
     @Override
     @Transactional(readOnly = true)
     public List<PaymentResponseDTO> getPaymentsByCustomer(Long customerId) {

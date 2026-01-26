@@ -32,4 +32,7 @@ public class BookingResponse {
     // cost fields
     private Double estimatedCost;
     private Double finalCost;
+    // payment info
+    private String paymentStatus;
+
 }

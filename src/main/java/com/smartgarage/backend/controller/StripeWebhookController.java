@@ -64,7 +64,7 @@ public class StripeWebhookController {
 
         } catch (Exception e) {
             e.printStackTrace();
-            // Always return 200 to prevent Stripe retries storm
+            // Always return 200 to avoid Stripe retry storms
             return ResponseEntity.ok("Handled");
         }
     }
@@ -134,19 +134,19 @@ public class StripeWebhookController {
         }
 
         // ----------------------------
-        // 1️⃣ UPDATE PAYMENT
+        // 1️⃣ UPDATE PAYMENT ONLY
         // ----------------------------
         payment.setStatus(PaymentStatus.SUCCESS);
         payment.setCompletedAt(LocalDateTime.now());
         paymentRepository.save(payment);
 
-        // ----------------------------
-        // 2️⃣ UPDATE BOOKING
-        // ----------------------------
-        booking.setStatus(BookingStatus.PAID);
-        bookingRepository.saveAndFlush(booking);
+        System.out.println("✅ Payment marked SUCCESS for booking " + bookingId);
 
-        System.out.println("✅ Booking " + bookingId + " marked as PAID");
+        // ----------------------------
+        // 2️⃣ DO NOT TOUCH BOOKING STATUS
+        // ----------------------------
+        // Booking must remain COMPLETED
+        // booking.setStatus(BookingStatus.PAID); ❌ REMOVED
 
         // ----------------------------
         // 3️⃣ CREATE / FETCH INVOICE
