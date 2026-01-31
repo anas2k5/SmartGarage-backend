@@ -35,12 +35,14 @@ public class SecurityConfig {
         this.jwtUtils = jwtUtils;
     }
 
+    // ================= AUTH MANAGER =================
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration cfg)
             throws Exception {
         return cfg.getAuthenticationManager();
     }
 
+    // ================= AUTH PROVIDER =================
     @Bean
     public DaoAuthenticationProvider daoAuthenticationProvider(
             PasswordEncoder encoder,
@@ -52,6 +54,7 @@ public class SecurityConfig {
         return provider;
     }
 
+    // ================= SECURITY FILTER =================
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http)
             throws Exception {
@@ -74,15 +77,16 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
 
-                        // PUBLIC
+                        // ================= PUBLIC =================
                         .requestMatchers(HttpMethod.POST, "/api/payments/stripe/webhook").permitAll()
                         .requestMatchers("/api/auth/**", "/api/users/register").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // ADMIN
-                        .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
+                        // ================= ADMIN =================
+                        .requestMatchers("/api/admin/**")
+                        .hasAnyAuthority("ADMIN", "ROLE_ADMIN")
 
-                        // AUTHENTICATED USERS
+                        // ================= AUTHENTICATED USERS =================
                         .requestMatchers(
                                 "/api/dashboard/**",
                                 "/api/bookings/**",
@@ -92,6 +96,7 @@ public class SecurityConfig {
                                 "/api/invoices/**"
                         ).authenticated()
 
+                        // ================= FALLBACK =================
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
@@ -102,6 +107,7 @@ public class SecurityConfig {
         return http.build();
     }
 
+    // ================= CORS =================
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
@@ -116,6 +122,7 @@ public class SecurityConfig {
         return source;
     }
 
+    // ================= AUTH ERRORS =================
     @Bean
     public AuthenticationEntryPoint restAuthenticationEntryPoint() {
         return (HttpServletRequest request,
@@ -144,6 +151,7 @@ public class SecurityConfig {
         };
     }
 
+    // ================= PASSWORD =================
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

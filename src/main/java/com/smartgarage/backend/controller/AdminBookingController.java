@@ -1,5 +1,6 @@
 package com.smartgarage.backend.controller;
 
+import com.smartgarage.backend.dto.AdminBookingDTO;
 import com.smartgarage.backend.model.Booking;
 import com.smartgarage.backend.model.BookingStatus;
 import com.smartgarage.backend.repository.BookingRepository;
@@ -18,47 +19,73 @@ public class AdminBookingController {
 
     private final BookingRepository bookingRepository;
 
-    // 🔍 View all bookings
+    // ================= GET ALL BOOKINGS =================
     @GetMapping
-    public ResponseEntity<List<Booking>> getAll() {
-        return ResponseEntity.ok(
+    public ResponseEntity<List<AdminBookingDTO>> getAll() {
+
+        List<AdminBookingDTO> result =
                 bookingRepository.findAll()
-        );
+                        .stream()
+                        .map(this::mapToDto)
+                        .toList();
+
+        return ResponseEntity.ok(result);
     }
 
-    // 🔍 Filter by status
+    // ================= FILTER BY STATUS =================
     @GetMapping("/status/{status}")
-    public ResponseEntity<List<Booking>> getByStatus(
+    public ResponseEntity<List<AdminBookingDTO>> getByStatus(
             @PathVariable BookingStatus status
     ) {
-        return ResponseEntity.ok(
+        List<AdminBookingDTO> result =
                 bookingRepository.findAll()
                         .stream()
                         .filter(b -> b.getStatus() == status)
-                        .toList()
-        );
+                        .map(this::mapToDto)
+                        .toList();
+
+        return ResponseEntity.ok(result);
     }
 
-    // 🚫 Force cancel booking (ADMIN override)
+    // ================= FORCE CANCEL =================
     @PutMapping("/{id}/cancel")
-    public ResponseEntity<String> forceCancel(
-            @PathVariable Long id
-    ) {
-        Booking b = bookingRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Booking not found: " + id)
+    public ResponseEntity<?> forceCancel(@PathVariable Long id) {
+
+        return bookingRepository.findById(id)
+                .map(booking -> {
+
+                    if (booking.getStatus() == BookingStatus.PAID) {
+                        return ResponseEntity
+                                .badRequest()
+                                .body("Cannot cancel PAID booking. Refund required.");
+                    }
+
+                    booking.setStatus(BookingStatus.CANCELLED);
+                    bookingRepository.save(booking);
+
+                    return ResponseEntity.ok("Booking cancelled successfully");
+                })
+                .orElseGet(() ->
+                        ResponseEntity.badRequest().body("Booking not found")
                 );
+    }
 
-        // 🛡️ Prevent cancelling already PAID bookings
-        if (b.getStatus() == BookingStatus.PAID) {
-            return ResponseEntity
-                    .badRequest()
-                    .body("Cannot cancel a PAID booking. Refund process required.");
-        }
-
-        b.setStatus(BookingStatus.CANCELLED);
-        bookingRepository.save(b);
-
-        return ResponseEntity.ok("Booking force cancelled");
+    // ================= DTO MAPPER =================
+    private AdminBookingDTO mapToDto(Booking b) {
+        return AdminBookingDTO.builder()
+                .id(b.getId())
+                .status(b.getStatus().name())
+                .bookingTime(b.getBookingTime())
+                .garageName(
+                        b.getGarage() != null
+                                ? b.getGarage().getName()
+                                : "—"
+                )
+                .customerEmail(
+                        b.getCustomer() != null
+                                ? b.getCustomer().getEmail()
+                                : "—"
+                )
+                .build();
     }
 }

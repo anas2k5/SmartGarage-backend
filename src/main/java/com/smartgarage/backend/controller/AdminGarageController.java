@@ -8,6 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/admin/garages")
@@ -20,21 +21,22 @@ public class AdminGarageController {
     // 🔍 View all garages
     @GetMapping
     public ResponseEntity<List<Garage>> getAllGarages() {
-        return ResponseEntity.ok(
-                garageRepository.findAll()
-        );
+        return ResponseEntity.ok(garageRepository.findAll());
     }
 
-    // 🔁 Enable / Disable garage
+    // 🔁 Enable / Disable garage safely
     @PutMapping("/{id}/toggle")
-    public ResponseEntity<Garage> toggleGarage(
-            @PathVariable Long id
-    ) {
-        Garage garage = garageRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Garage not found")
-                );
+    public ResponseEntity<?> toggleGarage(@PathVariable Long id) {
 
+        Optional<Garage> optionalGarage = garageRepository.findById(id);
+
+        if (optionalGarage.isEmpty()) {
+            return ResponseEntity
+                    .badRequest()
+                    .body("Garage not found");
+        }
+
+        Garage garage = optionalGarage.get();
         garage.setActive(!garage.isActive());
         garageRepository.save(garage);
 

@@ -17,7 +17,7 @@ public class AdminAuditController {
 
     private final AuditLogRepository auditLogRepository;
 
-    // 🔍 Recent platform activity (Last 20 actions)
+    // 🔍 Last 20 actions
     @GetMapping("/recent")
     public ResponseEntity<List<AuditLog>> getRecentLogs() {
         return ResponseEntity.ok(
@@ -25,18 +25,19 @@ public class AdminAuditController {
         );
     }
 
-    // 🔎 Track history of a specific entity
-    // Example: /api/admin/audit/BOOKING/12
+    // 🔎 Entity history
+    // Example: /api/admin/audit/BOOKING/5
     @GetMapping("/{entityType}/{entityId}")
     public ResponseEntity<List<AuditLog>> getEntityHistory(
             @PathVariable String entityType,
             @PathVariable Long entityId
     ) {
         return ResponseEntity.ok(
-                auditLogRepository.findByEntityTypeAndEntityIdOrderByTimestampDesc(
-                        entityType,
-                        entityId
-                )
+                auditLogRepository
+                        .findByEntityTypeAndEntityIdOrderByTimestampDesc(
+                                entityType.toUpperCase(),
+                                entityId
+                        )
         );
     }
 }

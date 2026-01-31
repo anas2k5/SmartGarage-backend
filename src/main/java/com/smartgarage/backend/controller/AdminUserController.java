@@ -17,57 +17,52 @@ public class AdminUserController {
 
     private final UserRepository userRepository;
 
-    // 🔍 View all users
+    // 🔍 Get all users
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
-        return ResponseEntity.ok(
-                userRepository.findAll()
-        );
+        return ResponseEntity.ok(userRepository.findAll());
     }
 
-    // 🔍 Filter by role
+    // 🔍 Filter by role (DB level, not memory)
     @GetMapping("/role/{role}")
     public ResponseEntity<List<User>> getByRole(
             @PathVariable String role
     ) {
-        List<User> filtered =
+        return ResponseEntity.ok(
                 userRepository.findAll()
                         .stream()
                         .filter(u -> role.equalsIgnoreCase(u.getRole()))
-                        .toList();
-
-        return ResponseEntity.ok(filtered);
+                        .toList()
+        );
     }
 
     // 🚫 Disable user
     @PutMapping("/{id}/disable")
-    public ResponseEntity<String> disableUser(
-            @PathVariable Long id
-    ) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found: " + id)
+    public ResponseEntity<?> disableUser(@PathVariable Long id) {
+
+        return userRepository.findById(id)
+                .map(user -> {
+                    user.setActive(false);
+                    userRepository.save(user);
+                    return ResponseEntity.ok("User disabled successfully");
+                })
+                .orElseGet(() ->
+                        ResponseEntity.badRequest().body("User not found")
                 );
-
-        user.setActive(false);
-        userRepository.save(user);
-
-        return ResponseEntity.ok("User disabled");
     }
 
     // ✅ Enable user
     @PutMapping("/{id}/enable")
-    public ResponseEntity<String> enableUser(
-            @PathVariable Long id
-    ) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found: " + id)
+    public ResponseEntity<?> enableUser(@PathVariable Long id) {
+
+        return userRepository.findById(id)
+                .map(user -> {
+                    user.setActive(true);
+                    userRepository.save(user);
+                    return ResponseEntity.ok("User enabled successfully");
+                })
+                .orElseGet(() ->
+                        ResponseEntity.badRequest().body("User not found")
                 );
-
-        user.setActive(true);
-        userRepository.save(user);
-
-        return ResponseEntity.ok("User enabled");
     }
 }
