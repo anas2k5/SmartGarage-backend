@@ -20,6 +20,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final BookingRepository bookingRepository;
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
+    private final GarageRepository garageRepository;
 
     // ================= CUSTOMER =================
 
@@ -129,7 +130,8 @@ public class DashboardServiceImpl implements DashboardService {
 
         Set<Long> garageIds =
                 bookings.stream()
-                        .map(b -> b.getGarage().getId())
+                        .map(b -> b.getGarage() != null ? b.getGarage().getId() : null)
+                        .filter(Objects::nonNull)
                         .collect(Collectors.toSet());
 
         Double totalRevenue = paymentRepository
@@ -143,14 +145,14 @@ public class DashboardServiceImpl implements DashboardService {
                 .mapToDouble(Double::doubleValue)
                 .sum();
 
-        // 🔥 RECENT BOOKINGS
+        // 🔥 RECENT BOOKINGS (NULL SAFE)
         List<OwnerBookingSummaryDTO> recentBookings =
                 bookings.stream()
                         .sorted(Comparator.comparing(
                                 Booking::getBookingTime
                         ).reversed())
                         .limit(5)
-                        .map(this::toOwnerSummary)
+                        .map(this::safeOwnerSummary)
                         .toList();
 
         // 💳 REAL RECENT PAYMENTS
@@ -179,15 +181,88 @@ public class DashboardServiceImpl implements DashboardService {
                 .build();
     }
 
-    private OwnerBookingSummaryDTO toOwnerSummary(
-            Booking booking
-    ) {
+    // ================= ADMIN (⚡ OPTIMIZED & SAFE) =================
+
+    @Override
+    public AdminDashboardDTO getAdminDashboard() {
+
+        long totalUsers = userRepository.count();
+        long totalCustomers = userRepository.countByRole("CUSTOMER");
+        long totalOwners = userRepository.countByRole("OWNER");
+        long totalGarages = garageRepository.count();
+        long totalBookings = bookingRepository.count();
+
+        long pending = bookingRepository.countByStatus(BookingStatus.PENDING);
+        long accepted = bookingRepository.countByStatus(BookingStatus.ACCEPTED);
+        long inProgress = bookingRepository.countByStatus(BookingStatus.IN_PROGRESS);
+        long completed = bookingRepository.countByStatus(BookingStatus.COMPLETED);
+        long cancelled = bookingRepository.countByStatus(BookingStatus.CANCELLED);
+        long paid = bookingRepository.countByStatus(BookingStatus.PAID);
+
+        // 💰 SOURCE OF TRUTH = PAYMENTS, NOT BOOKINGS
+        Double totalRevenue = bookingRepository.getTotalRevenue();
+
+        // 🔥 RECENT BOOKINGS (LIMITED + NULL SAFE)
+        List<OwnerBookingSummaryDTO> recentBookings =
+                bookingRepository.findAll()
+                        .stream()
+                        .sorted(Comparator.comparing(Booking::getBookingTime).reversed())
+                        .limit(5)
+                        .map(this::safeOwnerSummary)
+                        .toList();
+
+        // 💳 REAL RECENT PAYMENTS
+        List<OwnerPaymentSummaryDTO> recentPayments =
+                paymentRepository
+                        .findTop5ByStatusOrderByCompletedAtDesc(PaymentStatus.SUCCESS)
+                        .stream()
+                        .map(this::toPaymentSummary)
+                        .toList();
+
+        return AdminDashboardDTO.builder()
+                .totalUsers(totalUsers)
+                .totalCustomers(totalCustomers)
+                .totalOwners(totalOwners)
+                .totalGarages(totalGarages)
+                .totalBookings(totalBookings)
+                .pendingBookings(pending)
+                .acceptedBookings(accepted)
+                .inProgressBookings(inProgress)
+                .completedBookings(completed)
+                .cancelledBookings(cancelled)
+                .paidBookings(paid)
+                .totalRevenue(totalRevenue)
+                .recentBookings(recentBookings)
+                .recentPayments(recentPayments)
+                .build();
+    }
+
+    // ================= SAFE MAPPERS =================
+
+    private OwnerBookingSummaryDTO safeOwnerSummary(Booking booking) {
+
+        String garageName = null;
+        Long garageId = null;
+
+        if (booking.getGarage() != null) {
+            garageName = booking.getGarage().getName();
+            garageId = booking.getGarage().getId();
+        }
+
+        String customerEmail = null;
+        Long customerId = null;
+
+        if (booking.getCustomer() != null) {
+            customerEmail = booking.getCustomer().getEmail();
+            customerId = booking.getCustomer().getId();
+        }
+
         return OwnerBookingSummaryDTO.builder()
                 .bookingId(booking.getId())
-                .customerId(booking.getCustomer().getId())
-                .customerEmail(booking.getCustomer().getEmail())
-                .garageId(booking.getGarage().getId())
-                .garageName(booking.getGarage().getName())
+                .customerId(customerId)
+                .customerEmail(customerEmail)
+                .garageId(garageId)
+                .garageName(garageName)
                 .serviceType(
                         booking.getService() != null
                                 ? booking.getService().getName()
@@ -204,20 +279,34 @@ public class DashboardServiceImpl implements DashboardService {
     ) {
         return OwnerPaymentSummaryDTO.builder()
                 .paymentId(payment.getId())
-                .bookingId(payment.getBooking().getId())
+                .bookingId(
+                        payment.getBooking() != null
+                                ? payment.getBooking().getId()
+                                : null
+                )
                 .garageName(
-                        payment.getBooking()
-                                .getGarage()
-                                .getName()
+                        payment.getBooking() != null &&
+                                payment.getBooking().getGarage() != null
+                                ? payment.getBooking().getGarage().getName()
+                                : null
                 )
                 .customerEmail(
-                        payment.getBooking()
-                                .getCustomer()
-                                .getEmail()
+                        payment.getBooking() != null &&
+                                payment.getBooking().getCustomer() != null
+                                ? payment.getBooking().getCustomer().getEmail()
+                                : null
                 )
                 .amount(payment.getAmount())
-                .method(payment.getMethod().name())
-                .status(payment.getStatus().name())
+                .method(
+                        payment.getMethod() != null
+                                ? payment.getMethod().name()
+                                : null
+                )
+                .status(
+                        payment.getStatus() != null
+                                ? payment.getStatus().name()
+                                : null
+                )
                 .paidAt(payment.getCompletedAt())
                 .build();
     }

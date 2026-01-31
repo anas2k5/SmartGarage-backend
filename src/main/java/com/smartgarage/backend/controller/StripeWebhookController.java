@@ -3,6 +3,7 @@ package com.smartgarage.backend.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartgarage.backend.model.*;
 import com.smartgarage.backend.repository.*;
+import com.smartgarage.backend.service.AuditService;
 import com.smartgarage.backend.service.EmailService;
 import com.smartgarage.backend.service.InvoicePdfService;
 import com.stripe.exception.SignatureVerificationException;
@@ -29,6 +30,9 @@ public class StripeWebhookController {
     private final InvoiceRepository invoiceRepository;
     private final EmailService emailService;
     private final InvoicePdfService invoicePdfService;
+
+    // 🔥 AUDIT SERVICE INJECTED
+    private final AuditService auditService;
 
     @Value("${stripe.webhook.secret}")
     private String webhookSecret;
@@ -139,6 +143,20 @@ public class StripeWebhookController {
         payment.setStatus(PaymentStatus.SUCCESS);
         payment.setCompletedAt(LocalDateTime.now());
         paymentRepository.save(payment);
+
+        // ----------------------------
+        // 🔥 AUDIT PAYMENT SUCCESS
+        // ----------------------------
+        auditService.log(
+                booking.getCustomer().getId(),
+                booking.getCustomer().getEmail(),
+                "CUSTOMER",
+                "PAYMENT_SUCCESS",
+                "PAYMENT",
+                payment.getId(),
+                "PENDING",
+                "SUCCESS"
+        );
 
         System.out.println("✅ Payment marked SUCCESS for booking " + bookingId);
 

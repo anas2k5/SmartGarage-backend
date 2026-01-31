@@ -31,4 +31,9 @@ public class User {
     private String password;
 
     private String role;
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean active = true;
+
+
 }

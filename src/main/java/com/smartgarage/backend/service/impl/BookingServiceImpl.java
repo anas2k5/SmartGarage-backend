@@ -5,6 +5,7 @@ import com.smartgarage.backend.exception.ForbiddenException;
 import com.smartgarage.backend.exception.ResourceNotFoundException;
 import com.smartgarage.backend.model.*;
 import com.smartgarage.backend.repository.*;
+import com.smartgarage.backend.service.AuditService;
 import com.smartgarage.backend.service.BookingService;
 import com.smartgarage.backend.service.EmailService;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class BookingServiceImpl implements BookingService {
     private final MechanicRepository mechanicRepository;
     private final GarageServiceRepository garageServiceRepository;
     private final EmailService emailService;
+    private final AuditService auditService;
 
     public BookingServiceImpl(
             BookingRepository bookingRepository,
@@ -33,7 +35,8 @@ public class BookingServiceImpl implements BookingService {
             VehicleRepository vehicleRepository,
             MechanicRepository mechanicRepository,
             GarageServiceRepository garageServiceRepository,
-            EmailService emailService
+            EmailService emailService,
+            AuditService auditService
     ) {
         this.bookingRepository = bookingRepository;
         this.garageRepository = garageRepository;
@@ -41,6 +44,7 @@ public class BookingServiceImpl implements BookingService {
         this.mechanicRepository = mechanicRepository;
         this.garageServiceRepository = garageServiceRepository;
         this.emailService = emailService;
+        this.auditService = auditService;
     }
 
     // -------------------------------------------------
@@ -110,11 +114,10 @@ public class BookingServiceImpl implements BookingService {
     }
 
     // -------------------------------------------------
-    // FETCH (🔥 FIXED — FORCE FRESH DB READ)
+    // FETCH
     // -------------------------------------------------
     @Override
     public List<Booking> byCustomer(Long customerId) {
-        // ✅ This fixes PAID status not updating in Flutter
         return bookingRepository.findFreshByCustomerId(customerId);
     }
 
@@ -124,7 +127,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     // -------------------------------------------------
-    // OWNER: FETCH BOOKINGS BY GARAGE
+    // OWNER FETCH BY GARAGE (INTERFACE FIX)
     // -------------------------------------------------
     @Override
     public List<Booking> getBookingsByGarage(Long garageId, String ownerEmail) {
@@ -133,7 +136,7 @@ public class BookingServiceImpl implements BookingService {
                 .orElseThrow(() -> new ResourceNotFoundException("Garage not found"));
 
         if (!garage.getOwner().getEmail().equals(ownerEmail)) {
-            throw new ForbiddenException("Not your garage");
+            throw new ForbiddenException("Not authorized to view bookings for this garage");
         }
 
         return bookingRepository.findByGarageIdOrderByBookingTimeDesc(garageId);
@@ -163,8 +166,23 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalStateException("Invalid transition");
         }
 
+        BookingStatus old = booking.getStatus();
+
         booking.setStatus(BookingStatus.ACCEPTED);
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        auditService.log(
+                requesterId,
+                booking.getCustomer().getEmail(),
+                requesterRole,
+                "STATUS_CHANGE",
+                "BOOKING",
+                bookingId,
+                old.name(),
+                BookingStatus.ACCEPTED.name()
+        );
+
+        return saved;
     }
 
     // -------------------------------------------------
@@ -198,8 +216,25 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalArgumentException("Mechanic does not belong to this garage");
         }
 
+        String oldMech = booking.getMechanic() != null
+                ? booking.getMechanic().getName()
+                : "NONE";
+
         booking.setMechanic(mechanic);
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        auditService.log(
+                requesterId,
+                booking.getCustomer().getEmail(),
+                requesterRole,
+                "ASSIGN_MECHANIC",
+                "BOOKING",
+                bookingId,
+                oldMech,
+                mechanic.getName()
+        );
+
+        return saved;
     }
 
     // -------------------------------------------------
@@ -244,12 +279,27 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalStateException("Invalid transition");
         }
 
+        BookingStatus old = booking.getStatus();
+
         booking.setStatus(nextStatus);
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        auditService.log(
+                requesterId,
+                booking.getCustomer().getEmail(),
+                requesterRole,
+                "STATUS_CHANGE",
+                "BOOKING",
+                bookingId,
+                old.name(),
+                nextStatus.name()
+        );
+
+        return saved;
     }
 
     // -------------------------------------------------
-    // UPDATE ESTIMATED COST
+    // UPDATE ESTIMATED COST (🔥 FIXED)
     // -------------------------------------------------
     @Override
     public Booking updateEstimatedCost(
@@ -272,8 +322,23 @@ public class BookingServiceImpl implements BookingService {
             throw new ForbiddenException("Only owner or admin allowed");
         }
 
+        Double old = booking.getEstimatedCost();
+
         booking.setEstimatedCost(estimatedCost);
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        auditService.log(
+                requesterId,
+                booking.getCustomer().getEmail(),
+                requesterRole,
+                "ESTIMATED_COST_UPDATE",
+                "BOOKING",
+                bookingId,
+                String.valueOf(old),
+                String.valueOf(estimatedCost)
+        );
+
+        return saved;
     }
 
     // -------------------------------------------------
@@ -300,7 +365,22 @@ public class BookingServiceImpl implements BookingService {
             throw new ForbiddenException("Only owner or admin allowed");
         }
 
+        Double old = booking.getFinalCost();
+
         booking.setFinalCost(finalCost);
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        auditService.log(
+                requesterId,
+                booking.getCustomer().getEmail(),
+                requesterRole,
+                "FINAL_COST_UPDATE",
+                "BOOKING",
+                bookingId,
+                String.valueOf(old),
+                String.valueOf(finalCost)
+        );
+
+        return saved;
     }
 }

@@ -8,5 +8,9 @@ import java.util.List;
 
 @Repository
 public interface GarageRepository extends JpaRepository<Garage, Long> {
+
     List<Garage> findByOwnerId(Long ownerId);
+
+    // ================= ADMIN METRICS =================
+    long countByActiveTrue();
 }

@@ -52,7 +52,8 @@ public class AuthController {
 
             // Generate JWT using OLD JwtUtils (username only)
             String token = jwtUtils.generateToken(
-                    principal.getUsername()
+                    principal.getUsername(),
+                    principal.getRole()
             );
 
             JwtResponse res = new JwtResponse(
