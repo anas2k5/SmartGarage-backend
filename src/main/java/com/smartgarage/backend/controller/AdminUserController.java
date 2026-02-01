@@ -1,5 +1,6 @@
 package com.smartgarage.backend.controller;
 
+import com.smartgarage.backend.model.AuditModule;
 import com.smartgarage.backend.model.User;
 import com.smartgarage.backend.repository.UserRepository;
 import com.smartgarage.backend.service.AuditService;
@@ -35,11 +36,18 @@ public class AdminUserController {
     ) {
         return userRepository.findById(id)
                 .map(user -> {
+
+                    if (!user.isActive()) {
+                        return ResponseEntity.badRequest()
+                                .body("User is already disabled");
+                    }
+
                     user.setActive(false);
                     userRepository.save(user);
 
                     // 🔥 AUDIT LOG
                     auditService.log(
+                            AuditModule.USER_MANAGEMENT,
                             user.getId(),
                             userDetails.getUsername(),
                             "ADMIN",
@@ -65,11 +73,18 @@ public class AdminUserController {
     ) {
         return userRepository.findById(id)
                 .map(user -> {
+
+                    if (user.isActive()) {
+                        return ResponseEntity.badRequest()
+                                .body("User is already active");
+                    }
+
                     user.setActive(true);
                     userRepository.save(user);
 
                     // 🔥 AUDIT LOG
                     auditService.log(
+                            AuditModule.USER_MANAGEMENT,
                             user.getId(),
                             userDetails.getUsername(),
                             "ADMIN",

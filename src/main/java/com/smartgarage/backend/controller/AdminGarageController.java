@@ -1,5 +1,6 @@
 package com.smartgarage.backend.controller;
 
+import com.smartgarage.backend.model.AuditModule;
 import com.smartgarage.backend.model.Garage;
 import com.smartgarage.backend.repository.GarageRepository;
 import com.smartgarage.backend.service.AuditService;
@@ -11,7 +12,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/admin/garages")
@@ -34,13 +34,9 @@ public class AdminGarageController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
-        Optional<Garage> optionalGarage = garageRepository.findById(id);
+        Garage garage = garageRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Garage not found"));
 
-        if (optionalGarage.isEmpty()) {
-            return ResponseEntity.badRequest().body("Garage not found");
-        }
-
-        Garage garage = optionalGarage.get();
         String oldValue = String.valueOf(garage.isActive());
 
         garage.setActive(!garage.isActive());
@@ -48,7 +44,8 @@ public class AdminGarageController {
 
         // 🔥 AUDIT LOG
         auditService.log(
-                null,
+                AuditModule.GARAGE_MANAGEMENT,
+                garage.getOwner() != null ? garage.getOwner().getId() : null,
                 userDetails.getUsername(),
                 "ADMIN",
                 "GARAGE_TOGGLE",

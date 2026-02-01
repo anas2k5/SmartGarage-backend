@@ -8,6 +8,7 @@ import com.smartgarage.backend.repository.*;
 import com.smartgarage.backend.service.AuditService;
 import com.smartgarage.backend.service.BookingService;
 import com.smartgarage.backend.service.EmailService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +19,7 @@ import java.util.Optional;
 import java.util.Set;
 
 @Service
+@RequiredArgsConstructor
 @Transactional
 public class BookingServiceImpl implements BookingService {
 
@@ -28,24 +30,6 @@ public class BookingServiceImpl implements BookingService {
     private final GarageServiceRepository garageServiceRepository;
     private final EmailService emailService;
     private final AuditService auditService;
-
-    public BookingServiceImpl(
-            BookingRepository bookingRepository,
-            GarageRepository garageRepository,
-            VehicleRepository vehicleRepository,
-            MechanicRepository mechanicRepository,
-            GarageServiceRepository garageServiceRepository,
-            EmailService emailService,
-            AuditService auditService
-    ) {
-        this.bookingRepository = bookingRepository;
-        this.garageRepository = garageRepository;
-        this.vehicleRepository = vehicleRepository;
-        this.mechanicRepository = mechanicRepository;
-        this.garageServiceRepository = garageServiceRepository;
-        this.emailService = emailService;
-        this.auditService = auditService;
-    }
 
     // -------------------------------------------------
     // STATUS RULES
@@ -69,7 +53,6 @@ public class BookingServiceImpl implements BookingService {
             case IN_PROGRESS -> IN_PROGRESS_NEXT.contains(next);
             case COMPLETED -> COMPLETED_NEXT.contains(next);
             case PAID, CANCELLED -> false;
-            default -> false;
         };
     }
 
@@ -126,9 +109,6 @@ public class BookingServiceImpl implements BookingService {
         return bookingRepository.findById(id);
     }
 
-    // -------------------------------------------------
-    // OWNER FETCH BY GARAGE (INTERFACE FIX)
-    // -------------------------------------------------
     @Override
     public List<Booking> getBookingsByGarage(Long garageId, String ownerEmail) {
 
@@ -167,11 +147,11 @@ public class BookingServiceImpl implements BookingService {
         }
 
         BookingStatus old = booking.getStatus();
-
         booking.setStatus(BookingStatus.ACCEPTED);
         Booking saved = bookingRepository.save(booking);
 
         auditService.log(
+                AuditModule.BOOKING_MANAGEMENT,
                 requesterId,
                 booking.getCustomer().getEmail(),
                 requesterRole,
@@ -224,6 +204,7 @@ public class BookingServiceImpl implements BookingService {
         Booking saved = bookingRepository.save(booking);
 
         auditService.log(
+                AuditModule.BOOKING_MANAGEMENT,
                 requesterId,
                 booking.getCustomer().getEmail(),
                 requesterRole,
@@ -247,14 +228,13 @@ public class BookingServiceImpl implements BookingService {
             Long requesterId,
             String requesterRole
     ) {
-
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
 
         BookingStatus nextStatus = BookingStatus.valueOf(newStatus);
 
         if (booking.getStatus() == BookingStatus.CANCELLED) {
-            throw new IllegalStateException("Booking is already cancelled");
+            throw new IllegalStateException("Booking already cancelled");
         }
 
         if (booking.getStatus() == BookingStatus.PAID) {
@@ -280,11 +260,11 @@ public class BookingServiceImpl implements BookingService {
         }
 
         BookingStatus old = booking.getStatus();
-
         booking.setStatus(nextStatus);
         Booking saved = bookingRepository.save(booking);
 
         auditService.log(
+                AuditModule.BOOKING_MANAGEMENT,
                 requesterId,
                 booking.getCustomer().getEmail(),
                 requesterRole,
@@ -299,7 +279,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     // -------------------------------------------------
-    // UPDATE ESTIMATED COST (🔥 FIXED)
+    // UPDATE ESTIMATED COST
     // -------------------------------------------------
     @Override
     public Booking updateEstimatedCost(
@@ -323,11 +303,11 @@ public class BookingServiceImpl implements BookingService {
         }
 
         Double old = booking.getEstimatedCost();
-
         booking.setEstimatedCost(estimatedCost);
         Booking saved = bookingRepository.save(booking);
 
         auditService.log(
+                AuditModule.BOOKING_MANAGEMENT,
                 requesterId,
                 booking.getCustomer().getEmail(),
                 requesterRole,
@@ -366,11 +346,11 @@ public class BookingServiceImpl implements BookingService {
         }
 
         Double old = booking.getFinalCost();
-
         booking.setFinalCost(finalCost);
         Booking saved = bookingRepository.save(booking);
 
         auditService.log(
+                AuditModule.BOOKING_MANAGEMENT,
                 requesterId,
                 booking.getCustomer().getEmail(),
                 requesterRole,

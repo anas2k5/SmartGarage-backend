@@ -1,6 +1,7 @@
 package com.smartgarage.backend.service.impl;
 
 import com.smartgarage.backend.model.AuditLog;
+import com.smartgarage.backend.model.AuditModule;
 import com.smartgarage.backend.repository.AuditLogRepository;
 import com.smartgarage.backend.service.AuditService;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ public class AuditServiceImpl implements AuditService {
 
     @Override
     public void log(
+            AuditModule module,
             Long actorId,
             String actorEmail,
             String actorRole,
@@ -28,6 +30,7 @@ public class AuditServiceImpl implements AuditService {
             String newValue
     ) {
         AuditLog log = AuditLog.builder()
+                .module(module)
                 .actorId(actorId)
                 .actorEmail(actorEmail)
                 .actorRole(actorRole)
@@ -39,6 +42,6 @@ public class AuditServiceImpl implements AuditService {
                 .timestamp(LocalDateTime.now())
                 .build();
 
-        auditLogRepository.saveAndFlush(log); // 🔥 FORCE DB WRITE
+        auditLogRepository.saveAndFlush(log);
     }
 }

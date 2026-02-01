@@ -2,6 +2,7 @@ package com.smartgarage.backend.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -18,7 +19,6 @@ public class AuditLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = true)
     private Long actorId;
 
     @Column(nullable = false)
@@ -26,6 +26,10 @@ public class AuditLog {
 
     @Column(nullable = false)
     private String actorRole;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AuditModule module;
 
     @Column(nullable = false)
     private String action;
@@ -42,6 +46,7 @@ public class AuditLog {
     @Column(length = 2000)
     private String newValue;
 
-    @Column(nullable = false)
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
     private LocalDateTime timestamp;
 }

@@ -30,8 +30,6 @@ public class StripeWebhookController {
     private final InvoiceRepository invoiceRepository;
     private final EmailService emailService;
     private final InvoicePdfService invoicePdfService;
-
-    // 🔥 AUDIT SERVICE INJECTED
     private final AuditService auditService;
 
     @Value("${stripe.webhook.secret}")
@@ -39,7 +37,6 @@ public class StripeWebhookController {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // ================= MAIN HANDLER =================
     @PostMapping
     public ResponseEntity<String> handleWebhook(HttpServletRequest request) {
         try {
@@ -54,8 +51,6 @@ public class StripeWebhookController {
                     webhookSecret
             );
 
-            System.out.println("✅ Stripe Event: " + event.getType());
-
             if ("payment_intent.succeeded".equals(event.getType())) {
                 handleSuccessRaw(payload);
             }
@@ -63,17 +58,13 @@ public class StripeWebhookController {
             return ResponseEntity.ok("Received");
 
         } catch (SignatureVerificationException e) {
-            System.out.println("❌ Invalid Stripe signature");
             return ResponseEntity.status(400).body("Invalid signature");
-
         } catch (Exception e) {
             e.printStackTrace();
-            // Always return 200 to avoid Stripe retry storms
             return ResponseEntity.ok("Handled");
         }
     }
 
-    // ================= SUCCESS HANDLER =================
     @Transactional
     @SuppressWarnings("unchecked")
     public void handleSuccessRaw(String payload) throws Exception {
@@ -87,14 +78,10 @@ public class StripeWebhookController {
         Map<String, Object> obj =
                 (Map<String, Object>) data.get("object");
 
-        // ----------------------------
-        // METADATA VALIDATION
-        // ----------------------------
         Map<String, String> metadata =
                 (Map<String, String>) obj.get("metadata");
 
         if (metadata == null || !metadata.containsKey("bookingId")) {
-            System.out.println("⚠️ Missing bookingId in metadata");
             return;
         }
 
@@ -104,9 +91,6 @@ public class StripeWebhookController {
         String stripeIntentId =
                 (String) obj.get("id");
 
-        // ----------------------------
-        // LOAD DB OBJECTS
-        // ----------------------------
         Booking booking = bookingRepository
                 .findById(bookingId)
                 .orElseThrow(() ->
@@ -119,35 +103,24 @@ public class StripeWebhookController {
                         new RuntimeException("Payment not found for booking " + bookingId)
                 );
 
-        // ----------------------------
-        // SECURITY CHECK
-        // ----------------------------
         if (!stripeIntentId.equals(payment.getTransactionId())) {
-            System.out.println("❌ PaymentIntent mismatch detected");
-            System.out.println("DB TXN: " + payment.getTransactionId());
-            System.out.println("Stripe TXN: " + stripeIntentId);
             return;
         }
 
-        // ----------------------------
-        // IDEMPOTENCY LOCK
-        // ----------------------------
         if (payment.getStatus() == PaymentStatus.SUCCESS) {
-            System.out.println("⚠️ Duplicate webhook ignored for booking " + bookingId);
             return;
         }
 
         // ----------------------------
-        // 1️⃣ UPDATE PAYMENT ONLY
+        // UPDATE PAYMENT
         // ----------------------------
         payment.setStatus(PaymentStatus.SUCCESS);
         payment.setCompletedAt(LocalDateTime.now());
         paymentRepository.save(payment);
 
-        // ----------------------------
-        // 🔥 AUDIT PAYMENT SUCCESS
-        // ----------------------------
+        // 🔥 AUDIT
         auditService.log(
+                AuditModule.PAYMENT_MANAGEMENT,
                 booking.getCustomer().getId(),
                 booking.getCustomer().getEmail(),
                 "CUSTOMER",
@@ -158,16 +131,8 @@ public class StripeWebhookController {
                 "SUCCESS"
         );
 
-        System.out.println("✅ Payment marked SUCCESS for booking " + bookingId);
-
         // ----------------------------
-        // 2️⃣ DO NOT TOUCH BOOKING STATUS
-        // ----------------------------
-        // Booking must remain COMPLETED
-        // booking.setStatus(BookingStatus.PAID); ❌ REMOVED
-
-        // ----------------------------
-        // 3️⃣ CREATE / FETCH INVOICE
+        // CREATE / FETCH INVOICE
         // ----------------------------
         Invoice invoice = invoiceRepository
                 .findByBooking(booking)
@@ -186,7 +151,7 @@ public class StripeWebhookController {
         invoiceRepository.save(invoice);
 
         // ----------------------------
-        // 4️⃣ EMAIL CUSTOMER
+        // EMAIL CUSTOMER
         // ----------------------------
         try {
             byte[] pdf =
@@ -199,11 +164,7 @@ public class StripeWebhookController {
                     pdf,
                     "invoice-" + bookingId + ".pdf"
             );
-
-            System.out.println("📧 Invoice email sent to customer");
-
-        } catch (Exception e) {
-            System.out.println("⚠️ Email failed: " + e.getMessage());
+        } catch (Exception ignored) {
         }
     }
 }

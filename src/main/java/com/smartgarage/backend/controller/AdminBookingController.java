@@ -1,8 +1,7 @@
 package com.smartgarage.backend.controller;
 
 import com.smartgarage.backend.dto.AdminBookingDTO;
-import com.smartgarage.backend.model.Booking;
-import com.smartgarage.backend.model.BookingStatus;
+import com.smartgarage.backend.model.*;
 import com.smartgarage.backend.repository.BookingRepository;
 import com.smartgarage.backend.service.AuditService;
 import lombok.RequiredArgsConstructor;
@@ -23,34 +22,16 @@ public class AdminBookingController {
     private final BookingRepository bookingRepository;
     private final AuditService auditService;
 
-    // ================= GET ALL BOOKINGS =================
     @GetMapping
     public ResponseEntity<List<AdminBookingDTO>> getAll() {
-        List<AdminBookingDTO> result =
+        return ResponseEntity.ok(
                 bookingRepository.findAll()
                         .stream()
                         .map(this::mapToDto)
-                        .toList();
-
-        return ResponseEntity.ok(result);
+                        .toList()
+        );
     }
 
-    // ================= FILTER BY STATUS =================
-    @GetMapping("/status/{status}")
-    public ResponseEntity<List<AdminBookingDTO>> getByStatus(
-            @PathVariable BookingStatus status
-    ) {
-        List<AdminBookingDTO> result =
-                bookingRepository.findAll()
-                        .stream()
-                        .filter(b -> b.getStatus() == status)
-                        .map(this::mapToDto)
-                        .toList();
-
-        return ResponseEntity.ok(result);
-    }
-
-    // ================= FORCE CANCEL =================
     @PutMapping("/{id}/cancel")
     public ResponseEntity<?> forceCancel(
             @PathVariable Long id,
@@ -60,8 +41,7 @@ public class AdminBookingController {
                 .map(booking -> {
 
                     if (booking.getStatus() == BookingStatus.PAID) {
-                        return ResponseEntity
-                                .badRequest()
+                        return ResponseEntity.badRequest()
                                 .body("Cannot cancel PAID booking. Refund required.");
                     }
 
@@ -70,8 +50,9 @@ public class AdminBookingController {
                     booking.setStatus(BookingStatus.CANCELLED);
                     bookingRepository.save(booking);
 
-                    // 🔥 AUDIT LOG
+                    // 🔥 AUDIT
                     auditService.log(
+                            AuditModule.BOOKING_MANAGEMENT,
                             null,
                             userDetails.getUsername(),
                             "ADMIN",
@@ -89,22 +70,13 @@ public class AdminBookingController {
                 );
     }
 
-    // ================= DTO MAPPER =================
     private AdminBookingDTO mapToDto(Booking b) {
         return AdminBookingDTO.builder()
                 .id(b.getId())
                 .status(b.getStatus().name())
                 .bookingTime(b.getBookingTime())
-                .garageName(
-                        b.getGarage() != null
-                                ? b.getGarage().getName()
-                                : "—"
-                )
-                .customerEmail(
-                        b.getCustomer() != null
-                                ? b.getCustomer().getEmail()
-                                : "—"
-                )
+                .garageName(b.getGarage() != null ? b.getGarage().getName() : "—")
+                .customerEmail(b.getCustomer() != null ? b.getCustomer().getEmail() : "—")
                 .build();
     }
 }
