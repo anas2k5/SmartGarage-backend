@@ -17,7 +17,7 @@ public class AdminAuditController {
 
     private final AuditLogRepository auditLogRepository;
 
-    // 🔍 Last 20 actions
+    // ================= LAST 20 LOGS =================
     @GetMapping("/recent")
     public ResponseEntity<List<AuditLog>> getRecentLogs() {
         return ResponseEntity.ok(
@@ -25,8 +25,7 @@ public class AdminAuditController {
         );
     }
 
-    // 🔎 Entity history
-    // Example: /api/admin/audit/BOOKING/5
+    // ================= ENTITY HISTORY =================
     @GetMapping("/{entityType}/{entityId}")
     public ResponseEntity<List<AuditLog>> getEntityHistory(
             @PathVariable String entityType,

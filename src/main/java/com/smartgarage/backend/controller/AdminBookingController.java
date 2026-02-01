@@ -4,9 +4,12 @@ import com.smartgarage.backend.dto.AdminBookingDTO;
 import com.smartgarage.backend.model.Booking;
 import com.smartgarage.backend.model.BookingStatus;
 import com.smartgarage.backend.repository.BookingRepository;
+import com.smartgarage.backend.service.AuditService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,11 +21,11 @@ import java.util.List;
 public class AdminBookingController {
 
     private final BookingRepository bookingRepository;
+    private final AuditService auditService;
 
     // ================= GET ALL BOOKINGS =================
     @GetMapping
     public ResponseEntity<List<AdminBookingDTO>> getAll() {
-
         List<AdminBookingDTO> result =
                 bookingRepository.findAll()
                         .stream()
@@ -49,8 +52,10 @@ public class AdminBookingController {
 
     // ================= FORCE CANCEL =================
     @PutMapping("/{id}/cancel")
-    public ResponseEntity<?> forceCancel(@PathVariable Long id) {
-
+    public ResponseEntity<?> forceCancel(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
         return bookingRepository.findById(id)
                 .map(booking -> {
 
@@ -60,8 +65,22 @@ public class AdminBookingController {
                                 .body("Cannot cancel PAID booking. Refund required.");
                     }
 
+                    String oldStatus = booking.getStatus().name();
+
                     booking.setStatus(BookingStatus.CANCELLED);
                     bookingRepository.save(booking);
+
+                    // 🔥 AUDIT LOG
+                    auditService.log(
+                            null,
+                            userDetails.getUsername(),
+                            "ADMIN",
+                            "STATUS_CHANGE",
+                            "BOOKING",
+                            booking.getId(),
+                            oldStatus,
+                            "CANCELLED"
+                    );
 
                     return ResponseEntity.ok("Booking cancelled successfully");
                 })

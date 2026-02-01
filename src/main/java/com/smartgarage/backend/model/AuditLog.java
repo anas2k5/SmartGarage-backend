@@ -18,14 +18,22 @@ public class AuditLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Who did it
+    @Column(nullable = true)
     private Long actorId;
+
+    @Column(nullable = false)
     private String actorEmail;
+
+    @Column(nullable = false)
     private String actorRole;
 
-    // What was changed
-    private String action;       // STATUS_CHANGE, COST_UPDATE, PAYMENT_SUCCESS, ASSIGN_MECHANIC
-    private String entityType;  // BOOKING, PAYMENT, GARAGE, MECHANIC
+    @Column(nullable = false)
+    private String action;
+
+    @Column(nullable = false)
+    private String entityType;
+
+    @Column(nullable = false)
     private Long entityId;
 
     @Column(length = 2000)
@@ -34,5 +42,6 @@ public class AuditLog {
     @Column(length = 2000)
     private String newValue;
 
+    @Column(nullable = false)
     private LocalDateTime timestamp;
 }

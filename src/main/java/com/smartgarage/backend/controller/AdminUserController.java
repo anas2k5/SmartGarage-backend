@@ -2,9 +2,12 @@ package com.smartgarage.backend.controller;
 
 import com.smartgarage.backend.model.User;
 import com.smartgarage.backend.repository.UserRepository;
+import com.smartgarage.backend.service.AuditService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,34 +19,37 @@ import java.util.List;
 public class AdminUserController {
 
     private final UserRepository userRepository;
+    private final AuditService auditService;
 
-    // 🔍 Get all users
+    // ================= GET ALL USERS =================
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
         return ResponseEntity.ok(userRepository.findAll());
     }
 
-    // 🔍 Filter by role (DB level, not memory)
-    @GetMapping("/role/{role}")
-    public ResponseEntity<List<User>> getByRole(
-            @PathVariable String role
-    ) {
-        return ResponseEntity.ok(
-                userRepository.findAll()
-                        .stream()
-                        .filter(u -> role.equalsIgnoreCase(u.getRole()))
-                        .toList()
-        );
-    }
-
-    // 🚫 Disable user
+    // ================= DISABLE USER =================
     @PutMapping("/{id}/disable")
-    public ResponseEntity<?> disableUser(@PathVariable Long id) {
-
+    public ResponseEntity<?> disableUser(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
         return userRepository.findById(id)
                 .map(user -> {
                     user.setActive(false);
                     userRepository.save(user);
+
+                    // 🔥 AUDIT LOG
+                    auditService.log(
+                            user.getId(),
+                            userDetails.getUsername(),
+                            "ADMIN",
+                            "USER_DISABLED",
+                            "USER",
+                            user.getId(),
+                            "ACTIVE",
+                            "DISABLED"
+                    );
+
                     return ResponseEntity.ok("User disabled successfully");
                 })
                 .orElseGet(() ->
@@ -51,14 +57,29 @@ public class AdminUserController {
                 );
     }
 
-    // ✅ Enable user
+    // ================= ENABLE USER =================
     @PutMapping("/{id}/enable")
-    public ResponseEntity<?> enableUser(@PathVariable Long id) {
-
+    public ResponseEntity<?> enableUser(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
         return userRepository.findById(id)
                 .map(user -> {
                     user.setActive(true);
                     userRepository.save(user);
+
+                    // 🔥 AUDIT LOG
+                    auditService.log(
+                            user.getId(),
+                            userDetails.getUsername(),
+                            "ADMIN",
+                            "USER_ENABLED",
+                            "USER",
+                            user.getId(),
+                            "DISABLED",
+                            "ACTIVE"
+                    );
+
                     return ResponseEntity.ok("User enabled successfully");
                 })
                 .orElseGet(() ->

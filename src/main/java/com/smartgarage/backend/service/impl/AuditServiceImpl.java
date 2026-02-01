@@ -5,11 +5,13 @@ import com.smartgarage.backend.repository.AuditLogRepository;
 import com.smartgarage.backend.service.AuditService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class AuditServiceImpl implements AuditService {
 
     private final AuditLogRepository auditLogRepository;
@@ -37,6 +39,6 @@ public class AuditServiceImpl implements AuditService {
                 .timestamp(LocalDateTime.now())
                 .build();
 
-        auditLogRepository.save(log);
+        auditLogRepository.saveAndFlush(log); // 🔥 FORCE DB WRITE
     }
 }
