@@ -42,6 +42,6 @@ public class AuditServiceImpl implements AuditService {
                 .timestamp(LocalDateTime.now())
                 .build();
 
-        auditLogRepository.saveAndFlush(log);
+        auditLogRepository.save(log);
     }
 }
