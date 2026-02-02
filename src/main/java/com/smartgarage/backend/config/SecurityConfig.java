@@ -37,8 +37,9 @@ public class SecurityConfig {
 
     // ================= AUTH MANAGER =================
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration cfg)
-            throws Exception {
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration cfg
+    ) throws Exception {
         return cfg.getAuthenticationManager();
     }
 
@@ -46,8 +47,8 @@ public class SecurityConfig {
     @Bean
     public DaoAuthenticationProvider daoAuthenticationProvider(
             PasswordEncoder encoder,
-            UserDetailsService uds) {
-
+            UserDetailsService uds
+    ) {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setUserDetailsService(uds);
         provider.setPasswordEncoder(encoder);
@@ -78,22 +79,54 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         // ================= PUBLIC =================
-                        .requestMatchers(HttpMethod.POST, "/api/payments/stripe/webhook").permitAll()
-                        .requestMatchers("/api/auth/**", "/api/users/register").permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/payments/stripe/webhook"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/api/users/register"
+                        ).permitAll()
+
+                        .requestMatchers(HttpMethod.OPTIONS, "/**")
+                        .permitAll()
 
                         // ================= ADMIN =================
                         .requestMatchers("/api/admin/**")
-                        .hasAnyAuthority("ADMIN", "ROLE_ADMIN")
+                        .hasAuthority("ADMIN")
 
-                        // ================= AUTHENTICATED USERS =================
+                        // ================= OWNER =================
+                        .requestMatchers("/api/garages/me")
+                        .hasAnyAuthority("OWNER", "ADMIN")
+
+                        // ================= PAYMENTS =================
+                        .requestMatchers("/api/payments/me")
+                        .hasAnyAuthority("CUSTOMER", "ADMIN")
+
+                        .requestMatchers("/api/payments/initiate/**")
+                        .hasAuthority("CUSTOMER")
+
+                        .requestMatchers("/api/payments/status/**")
+                        .hasAnyAuthority("CUSTOMER", "OWNER", "ADMIN")
+
+                        .requestMatchers("/api/payments/invoice/**")
+                        .hasAnyAuthority("CUSTOMER", "OWNER", "ADMIN")
+
+                        // ================= JOB CARDS =================
+                        .requestMatchers("/api/jobcards/me")
+                        .hasAnyAuthority("MECHANIC", "ADMIN")
+
+                        .requestMatchers("/api/jobcards/**")
+                        .hasAnyAuthority("MECHANIC", "OWNER", "ADMIN")
+
+                        // ================= CORE APP =================
                         .requestMatchers(
                                 "/api/dashboard/**",
                                 "/api/bookings/**",
                                 "/api/vehicles/**",
                                 "/api/garages/**",
-                                "/api/payments/**",
-                                "/api/invoices/**"
+                                "/api/invoices/**",
+                                "/api/mechanics/**"
                         ).authenticated()
 
                         // ================= FALLBACK =================
@@ -101,7 +134,10 @@ public class SecurityConfig {
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .authenticationProvider(
-                        daoAuthenticationProvider(passwordEncoder(), userDetailsService)
+                        daoAuthenticationProvider(
+                                passwordEncoder(),
+                                userDetailsService
+                        )
                 );
 
         return http.build();
@@ -112,7 +148,9 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(List.of("*"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+        );
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 
@@ -132,7 +170,8 @@ public class SecurityConfig {
             response.setContentType("application/json");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().write(
-                    "{\"error\":\"Unauthorized\",\"message\":\"" + ex.getMessage() + "\"}"
+                    "{\"error\":\"Unauthorized\",\"message\":\"" +
+                            ex.getMessage() + "\"}"
             );
         };
     }
@@ -146,7 +185,8 @@ public class SecurityConfig {
             response.setContentType("application/json");
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             response.getWriter().write(
-                    "{\"error\":\"Forbidden\",\"message\":\"" + ex.getMessage() + "\"}"
+                    "{\"error\":\"Forbidden\",\"message\":\"" +
+                            ex.getMessage() + "\"}"
             );
         };
     }

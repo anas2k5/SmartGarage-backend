@@ -1,6 +1,7 @@
 package com.smartgarage.backend.controller;
 
 import com.smartgarage.backend.model.*;
+import com.smartgarage.backend.repository.MechanicRepository;
 import com.smartgarage.backend.service.AuditService;
 import com.smartgarage.backend.service.JobCardService;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ public class JobCardController {
 
     private final JobCardService jobCardService;
     private final AuditService auditService;
+    private final MechanicRepository mechanicRepository;
 
     // ================= CREATE JOB CARD =================
     @PostMapping("/booking/{bookingId}/mechanic/{mechanicId}")
@@ -32,7 +34,6 @@ public class JobCardController {
         JobCard jobCard =
                 jobCardService.createJobCard(bookingId, mechanicId, user.getUsername());
 
-        // 🔥 AUDIT
         auditService.log(
                 AuditModule.JOB_CARD_MANAGEMENT,
                 null,
@@ -48,25 +49,20 @@ public class JobCardController {
         return ResponseEntity.ok(jobCard);
     }
 
-    // ================= GET BY GARAGE =================
-    @GetMapping("/garage/{garageId}")
-    @PreAuthorize("hasAnyAuthority('OWNER','ADMIN')")
-    public ResponseEntity<List<JobCard>> getByGarage(
-            @PathVariable Long garageId
-    ) {
-        return ResponseEntity.ok(
-                jobCardService.getByGarage(garageId)
-        );
-    }
-
-    // ================= GET BY MECHANIC =================
-    @GetMapping("/mechanic/{mechanicId}")
+    // ================= MECHANIC: GET MY JOBS =================
+    @GetMapping("/me")
     @PreAuthorize("hasAnyAuthority('MECHANIC','ADMIN')")
-    public ResponseEntity<List<JobCard>> getByMechanic(
-            @PathVariable Long mechanicId
+    public ResponseEntity<List<JobCard>> getMyJobs(
+            @AuthenticationPrincipal UserDetails user
     ) {
+        Mechanic mechanic = mechanicRepository
+                .findByUserEmail(user.getUsername())
+                .orElseThrow(() ->
+                        new RuntimeException("Mechanic profile not linked to user")
+                );
+
         return ResponseEntity.ok(
-                jobCardService.getByMechanic(mechanicId)
+                jobCardService.getByMechanic(mechanic.getId())
         );
     }
 
@@ -130,7 +126,7 @@ public class JobCardController {
         return ResponseEntity.ok(part);
     }
 
-    // ================= APPROVE JOB =================
+    // ================= APPROVE =================
     @PutMapping("/{jobCardId}/approve")
     @PreAuthorize("hasAnyAuthority('OWNER','ADMIN')")
     public ResponseEntity<JobCard> approve(
@@ -154,7 +150,7 @@ public class JobCardController {
         return ResponseEntity.ok(card);
     }
 
-    // ================= CLOSE JOB =================
+    // ================= CLOSE =================
     @PutMapping("/{jobCardId}/close")
     @PreAuthorize("hasAnyAuthority('OWNER','ADMIN')")
     public ResponseEntity<JobCard> close(

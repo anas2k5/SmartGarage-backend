@@ -25,7 +25,7 @@ public class PaymentController {
 
     // ================= INITIATE STRIPE =================
     @PostMapping("/initiate/{bookingId}")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasAuthority('CUSTOMER')")
     public ResponseEntity<PaymentResponseDTO> initiatePayment(
             @PathVariable Long bookingId,
             @RequestBody PaymentInitiateRequestDTO request
@@ -40,7 +40,7 @@ public class PaymentController {
 
     // ================= STATUS (POLLING) =================
     @GetMapping("/status/{bookingId}")
-    @PreAuthorize("hasAnyRole('CUSTOMER','OWNER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('CUSTOMER','OWNER','ADMIN')")
     public ResponseEntity<PaymentResponseDTO> getPaymentStatus(
             @PathVariable Long bookingId
     ) {
@@ -53,7 +53,7 @@ public class PaymentController {
 
     // ================= HISTORY =================
     @GetMapping("/me")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasAuthority('CUSTOMER')")
     public ResponseEntity<?> getMyPayments(
             Principal principal
     ) {
@@ -79,7 +79,7 @@ public class PaymentController {
 
     // ================= INVOICE =================
     @GetMapping("/invoice/{bookingId}/download")
-    @PreAuthorize("hasAnyRole('CUSTOMER','OWNER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('CUSTOMER','OWNER','ADMIN')")
     public ResponseEntity<byte[]> downloadInvoice(
             @PathVariable Long bookingId
     ) {

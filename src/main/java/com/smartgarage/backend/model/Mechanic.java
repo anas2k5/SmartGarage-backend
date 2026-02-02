@@ -22,6 +22,12 @@ public class Mechanic {
 
     private String phone;
 
+    // 🔥 LINK LOGIN USER
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @JsonIgnoreProperties({"password", "hibernateLazyInitializer", "handler"})
+    private User user;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "garage_id", nullable = false)
     @JsonIgnoreProperties({"owner", "hibernateLazyInitializer", "handler"})
