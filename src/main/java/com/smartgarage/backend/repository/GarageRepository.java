@@ -13,4 +13,7 @@ public interface GarageRepository extends JpaRepository<Garage, Long> {
 
     // ================= ADMIN METRICS =================
     long countByActiveTrue();
+
+    List<Garage> findByActiveTrue();
+
 }

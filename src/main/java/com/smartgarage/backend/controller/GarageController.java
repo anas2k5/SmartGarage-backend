@@ -36,4 +36,13 @@ public class GarageController {
                 garageRepository.findByOwnerId(owner.getId())
         );
     }
+    // ================= CUSTOMER: BROWSE GARAGES =================
+    @GetMapping
+    @PreAuthorize("hasAnyAuthority('CUSTOMER','ADMIN')")
+    public ResponseEntity<List<Garage>> getActiveGarages() {
+        return ResponseEntity.ok(
+                garageRepository.findByActiveTrue()
+        );
+    }
+
 }
