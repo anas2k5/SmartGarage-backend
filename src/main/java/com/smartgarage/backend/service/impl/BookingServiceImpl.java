@@ -28,6 +28,7 @@ public class BookingServiceImpl implements BookingService {
     private final VehicleRepository vehicleRepository;
     private final MechanicRepository mechanicRepository;
     private final GarageServiceRepository garageServiceRepository;
+    private final JobCardRepository jobCardRepository;   // ✅ ADDED
     private final EmailService emailService;
     private final AuditService auditService;
 
@@ -166,8 +167,11 @@ public class BookingServiceImpl implements BookingService {
     }
 
     // -------------------------------------------------
-    // ASSIGN MECHANIC
+    // ASSIGN MECHANIC + JOBCARD CREATION
     // -------------------------------------------------
+    // -------------------------------------------------
+// ASSIGN MECHANIC + AUTO CREATE JOBCARD
+// -------------------------------------------------
     @Override
     public Booking assignMechanic(
             Long bookingId,
@@ -175,34 +179,96 @@ public class BookingServiceImpl implements BookingService {
             Long requesterId,
             String requesterRole
     ) {
+
+        // ----------------------------
+        // LOAD BOOKING
+        // ----------------------------
         Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Booking not found")
+                );
 
         if (booking.getStatus() == BookingStatus.PAID) {
-            throw new IllegalStateException("Paid booking cannot be changed");
+            throw new IllegalStateException(
+                    "Paid booking cannot be changed"
+            );
         }
 
+        // ----------------------------
+        // LOAD MECHANIC
+        // ----------------------------
         Mechanic mechanic = mechanicRepository.findById(mechanicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Mechanic not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Mechanic not found")
+                );
 
-        boolean isAdmin = "ADMIN".equalsIgnoreCase(requesterRole);
-        boolean isOwner = booking.getGarage().getOwner().getId().equals(requesterId);
+        // ----------------------------
+        // SECURITY CHECK
+        // ----------------------------
+        boolean isAdmin =
+                "ADMIN".equalsIgnoreCase(requesterRole);
+
+        boolean isOwner =
+                booking.getGarage()
+                        .getOwner()
+                        .getId()
+                        .equals(requesterId);
 
         if (!isAdmin && !isOwner) {
-            throw new ForbiddenException("Only owner or admin can assign mechanic");
+            throw new ForbiddenException(
+                    "Only owner or admin can assign mechanic"
+            );
         }
 
-        if (!mechanic.getGarage().getId().equals(booking.getGarage().getId())) {
-            throw new IllegalArgumentException("Mechanic does not belong to this garage");
+        // ----------------------------
+        // GARAGE VALIDATION
+        // ----------------------------
+        if (!mechanic.getGarage().getId()
+                .equals(booking.getGarage().getId())) {
+
+            throw new IllegalArgumentException(
+                    "Mechanic does not belong to this garage"
+            );
         }
 
-        String oldMech = booking.getMechanic() != null
-                ? booking.getMechanic().getName()
-                : "NONE";
+        // ----------------------------
+        // ASSIGN MECHANIC
+        // ----------------------------
+        String oldMechanic =
+                booking.getMechanic() != null
+                        ? booking.getMechanic().getName()
+                        : "NONE";
 
         booking.setMechanic(mechanic);
-        Booking saved = bookingRepository.save(booking);
 
+        Booking savedBooking =
+                bookingRepository.save(booking);
+
+        // =================================================
+        // 🔥 AUTO CREATE JOBCARD (MAIN FIX)
+        // =================================================
+        boolean jobCardExists =
+                jobCardRepository
+                        .findByBookingId(bookingId)
+                        .isPresent();
+
+        if (!jobCardExists) {
+
+            JobCard jobCard = JobCard.builder()
+                    .booking(savedBooking)
+                    .mechanic(mechanic)
+                    .status(JobCardStatus.OPEN)
+                    .laborCost(0.0)
+                    .partsCost(0.0)
+                    .notes("Auto-created on mechanic assignment")
+                    .build();
+
+            jobCardRepository.save(jobCard);
+        }
+
+        // ----------------------------
+        // AUDIT LOG
+        // ----------------------------
         auditService.log(
                 AuditModule.BOOKING_MANAGEMENT,
                 requesterId,
@@ -211,12 +277,13 @@ public class BookingServiceImpl implements BookingService {
                 "ASSIGN_MECHANIC",
                 "BOOKING",
                 bookingId,
-                oldMech,
+                oldMechanic,
                 mechanic.getName()
         );
 
-        return saved;
+        return savedBooking;
     }
+
 
     // -------------------------------------------------
     // UPDATE STATUS
