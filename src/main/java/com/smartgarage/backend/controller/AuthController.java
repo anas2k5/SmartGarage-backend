@@ -79,22 +79,33 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest req) {
 
-        // Check if email already exists
+        // Check duplicate email
         if (userRepository.existsByEmail(req.email())) {
             return ResponseEntity
                     .badRequest()
-                    .body("Email already registered");
+                    .body(
+                            java.util.Map.of(
+                                    "error", "Email already registered"
+                            )
+                    );
         }
 
-        // Create new user
+        // Create user
         User user = new User();
         user.setFullName(req.fullName());
         user.setEmail(req.email());
         user.setPassword(passwordEncoder.encode(req.password()));
         user.setRole(req.role());
 
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
 
-        return ResponseEntity.ok("User registered successfully");
+        // ✅ RETURN JSON
+        return ResponseEntity.ok(
+                java.util.Map.of(
+                        "message", "User registered successfully",
+                        "userId", savedUser.getId()
+                )
+        );
     }
+
 }
