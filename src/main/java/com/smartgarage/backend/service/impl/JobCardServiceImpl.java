@@ -18,45 +18,22 @@ public class JobCardServiceImpl implements JobCardService {
 
     private final JobCardRepository jobCardRepository;
     private final BookingRepository bookingRepository;
-    private final MechanicRepository mechanicRepository;
     private final JobCardTaskRepository taskRepository;
     private final JobCardPartRepository partRepository;
 
-    // ================= CREATE =================
-    @Override
-    public JobCard createJobCard(
-            Long bookingId,
-            Long mechanicId,
-            String requesterEmail
-    ) {
-        Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
-
-        Mechanic mechanic = mechanicRepository.findById(mechanicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Mechanic not found"));
-
-        JobCard jobCard = JobCard.builder()
-                .booking(booking)
-                .mechanic(mechanic)
-                .status(JobCardStatus.OPEN)
-                .createdAt(LocalDateTime.now())
-                .build();
-
-        return jobCardRepository.save(jobCard);
-    }
-
-    // ================= FETCH =================
-    @Override
-    public List<JobCard> getByGarage(Long garageId) {
-        return jobCardRepository.findByBookingGarageId(garageId);
-    }
-
+    // ================= FETCH BY MECHANIC =================
     @Override
     public List<JobCard> getByMechanic(Long mechanicId) {
         return jobCardRepository.findByMechanicId(mechanicId);
     }
 
-    // ================= TASK =================
+    // ================= FETCH BY GARAGE (OWNER) =================
+    @Override
+    public List<JobCard> getByGarage(Long garageId) {
+        return jobCardRepository.findByGarageId(garageId);
+    }
+
+    // ================= ADD TASK =================
     @Override
     public JobCardTask addTask(
             Long jobCardId,
@@ -65,7 +42,12 @@ public class JobCardServiceImpl implements JobCardService {
             Double cost
     ) {
         JobCard card = jobCardRepository.findById(jobCardId)
-                .orElseThrow(() -> new ResourceNotFoundException("JobCard not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("JobCard not found"));
+
+        if (card.getStatus() == JobCardStatus.CLOSED) {
+            throw new IllegalStateException("Job already closed");
+        }
 
         JobCardTask task = JobCardTask.builder()
                 .jobCard(card)
@@ -77,7 +59,7 @@ public class JobCardServiceImpl implements JobCardService {
         return taskRepository.save(task);
     }
 
-    // ================= PART =================
+    // ================= ADD PART =================
     @Override
     public JobCardPart addPart(
             Long jobCardId,
@@ -86,7 +68,12 @@ public class JobCardServiceImpl implements JobCardService {
             Double unitPrice
     ) {
         JobCard card = jobCardRepository.findById(jobCardId)
-                .orElseThrow(() -> new ResourceNotFoundException("JobCard not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("JobCard not found"));
+
+        if (card.getStatus() == JobCardStatus.CLOSED) {
+            throw new IllegalStateException("Job already closed");
+        }
 
         JobCardPart part = JobCardPart.builder()
                 .jobCard(card)
@@ -98,24 +85,76 @@ public class JobCardServiceImpl implements JobCardService {
         return partRepository.save(part);
     }
 
-    // ================= APPROVE =================
+    // ================= START WORK =================
     @Override
     public JobCard approveJob(Long jobCardId) {
+
         JobCard card = jobCardRepository.findById(jobCardId)
-                .orElseThrow(() -> new ResourceNotFoundException("JobCard not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("JobCard not found"));
 
         card.setStatus(JobCardStatus.WORKING);
+
+        // Sync booking
+        Booking booking = card.getBooking();
+        booking.setStatus(BookingStatus.IN_PROGRESS);
+
+        bookingRepository.save(booking);
+
         return jobCardRepository.save(card);
     }
 
-    // ================= CLOSE =================
     @Override
     public JobCard closeJob(Long jobCardId) {
-        JobCard card = jobCardRepository.findById(jobCardId)
-                .orElseThrow(() -> new ResourceNotFoundException("JobCard not found"));
 
+        JobCard card = jobCardRepository.findById(jobCardId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("JobCard not found"));
+
+        if (card.getStatus() == JobCardStatus.CLOSED) {
+            throw new IllegalStateException("Job already closed");
+        }
+
+        // 1️⃣ Close job card
         card.setStatus(JobCardStatus.CLOSED);
         card.setClosedAt(LocalDateTime.now());
-        return jobCardRepository.save(card);
+
+        // 2️⃣ Fetch tasks + parts
+        List<JobCardTask> tasks =
+                taskRepository.findByJobCardId(jobCardId);
+
+        List<JobCardPart> parts =
+                partRepository.findByJobCardId(jobCardId);
+
+        // 3️⃣ Calculate labor cost
+        double laborCost = tasks.stream()
+                .mapToDouble(t ->
+                        t.getCost() != null ? t.getCost() : 0)
+                .sum();
+
+        // 4️⃣ Calculate parts cost
+        double partsCost = parts.stream()
+                .mapToDouble(p ->
+                        (p.getQuantity() != null ? p.getQuantity() : 0) *
+                                (p.getUnitPrice() != null ? p.getUnitPrice() : 0))
+                .sum();
+
+        double totalCost = laborCost + partsCost;
+        System.out.println("🔥 CLOSE JOB EXECUTED");
+        System.out.println("Total cost = " + totalCost);
+
+        // 5️⃣ Save cost in job card
+        card.setLaborCost(laborCost);
+        card.setPartsCost(partsCost);
+        card.setTotalCost(totalCost);   // ⭐ IMPORTANT
+
+        // 6️⃣ Sync booking (Owner finalizes later)
+        Booking booking = card.getBooking();
+        booking.setFinalCost(totalCost);
+
+        bookingRepository.saveAndFlush(booking);
+
+        return jobCardRepository.saveAndFlush(card);
     }
+
 }

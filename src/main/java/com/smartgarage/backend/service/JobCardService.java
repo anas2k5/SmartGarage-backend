@@ -8,11 +8,11 @@ import java.util.List;
 
 public interface JobCardService {
 
-    JobCard createJobCard(Long bookingId, Long mechanicId, String requesterEmail);
-
-    List<JobCard> getByGarage(Long garageId);
+    // ================= FETCH =================
 
     List<JobCard> getByMechanic(Long mechanicId);
+
+    // ================= TASK =================
 
     JobCardTask addTask(
             Long jobCardId,
@@ -21,6 +21,8 @@ public interface JobCardService {
             Double cost
     );
 
+    // ================= PART =================
+
     JobCardPart addPart(
             Long jobCardId,
             String name,
@@ -28,7 +30,12 @@ public interface JobCardService {
             Double unitPrice
     );
 
+    // ================= STATUS =================
+
     JobCard approveJob(Long jobCardId);
 
     JobCard closeJob(Long jobCardId);
+
+
+    List<JobCard> getByGarage(Long garageId);
 }

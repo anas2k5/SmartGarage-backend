@@ -2,7 +2,6 @@ package com.smartgarage.backend.controller;
 
 import com.smartgarage.backend.model.*;
 import com.smartgarage.backend.repository.MechanicRepository;
-import com.smartgarage.backend.service.AuditService;
 import com.smartgarage.backend.service.JobCardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,45 +19,34 @@ import java.util.Map;
 public class JobCardController {
 
     private final JobCardService jobCardService;
-    private final AuditService auditService;
     private final MechanicRepository mechanicRepository;
 
-    // ================= CREATE JOB CARD =================
-    @PostMapping("/booking/{bookingId}/mechanic/{mechanicId}")
+    // =========================================================
+    // OWNER → GET GARAGE JOB CARDS
+    // =========================================================
+    @GetMapping("/garage/{garageId}")
     @PreAuthorize("hasAnyAuthority('OWNER','ADMIN')")
-    public ResponseEntity<JobCard> createJobCard(
-            @PathVariable Long bookingId,
-            @PathVariable Long mechanicId,
-            @AuthenticationPrincipal UserDetails user
+    public ResponseEntity<List<JobCard>> getGarageJobs(
+            @PathVariable Long garageId
     ) {
-        JobCard jobCard =
-                jobCardService.createJobCard(bookingId, mechanicId, user.getUsername());
-
-        auditService.log(
-                AuditModule.JOB_CARD_MANAGEMENT,
-                null,
-                user.getUsername(),
-                "OWNER",
-                "JOB_CARD_CREATED",
-                "JOB_CARD",
-                jobCard.getId(),
-                "NONE",
-                "OPEN"
+        return ResponseEntity.ok(
+                jobCardService.getByGarage(garageId)
         );
-
-        return ResponseEntity.ok(jobCard);
     }
 
-    // ================= MECHANIC: GET MY JOBS =================
+    // =========================================================
+    // MECHANIC → MY JOBS
+    // =========================================================
     @GetMapping("/me")
     @PreAuthorize("hasAnyAuthority('MECHANIC','ADMIN')")
     public ResponseEntity<List<JobCard>> getMyJobs(
             @AuthenticationPrincipal UserDetails user
     ) {
+
         Mechanic mechanic = mechanicRepository
                 .findByUserEmail(user.getUsername())
                 .orElseThrow(() ->
-                        new RuntimeException("Mechanic profile not linked to user")
+                        new RuntimeException("Mechanic profile not linked")
                 );
 
         return ResponseEntity.ok(
@@ -66,111 +54,67 @@ public class JobCardController {
         );
     }
 
-    // ================= ADD TASK =================
+    // =========================================================
+    // ADD TASK
+    // =========================================================
     @PostMapping("/{jobCardId}/tasks")
-    @PreAuthorize("hasAnyAuthority('MECHANIC','OWNER')")
+    @PreAuthorize("hasAuthority('MECHANIC')")
     public ResponseEntity<JobCardTask> addTask(
             @PathVariable Long jobCardId,
-            @RequestBody Map<String, Object> body,
-            @AuthenticationPrincipal UserDetails user
+            @RequestBody Map<String, Object> body
     ) {
-        String description = body.get("description").toString();
+
+        String desc = body.get("description").toString();
         Double hours = Double.valueOf(body.get("hours").toString());
         Double cost = Double.valueOf(body.get("cost").toString());
 
-        JobCardTask task =
-                jobCardService.addTask(jobCardId, description, hours, cost);
-
-        auditService.log(
-                AuditModule.JOB_CARD_MANAGEMENT,
-                null,
-                user.getUsername(),
-                "MECHANIC",
-                "TASK_ADDED",
-                "JOB_CARD",
-                jobCardId,
-                "NONE",
-                description
+        return ResponseEntity.ok(
+                jobCardService.addTask(jobCardId, desc, hours, cost)
         );
-
-        return ResponseEntity.ok(task);
     }
 
-    // ================= ADD PART =================
+    // =========================================================
+    // ADD PART
+    // =========================================================
     @PostMapping("/{jobCardId}/parts")
-    @PreAuthorize("hasAnyAuthority('MECHANIC','OWNER')")
+    @PreAuthorize("hasAuthority('MECHANIC')")
     public ResponseEntity<JobCardPart> addPart(
             @PathVariable Long jobCardId,
-            @RequestBody Map<String, Object> body,
-            @AuthenticationPrincipal UserDetails user
+            @RequestBody Map<String, Object> body
     ) {
+
         String name = body.get("name").toString();
         Integer qty = Integer.parseInt(body.get("quantity").toString());
         Double price = Double.valueOf(body.get("unitPrice").toString());
 
-        JobCardPart part =
-                jobCardService.addPart(jobCardId, name, qty, price);
-
-        auditService.log(
-                AuditModule.JOB_CARD_MANAGEMENT,
-                null,
-                user.getUsername(),
-                "MECHANIC",
-                "PART_ADDED",
-                "JOB_CARD",
-                jobCardId,
-                "NONE",
-                name
+        return ResponseEntity.ok(
+                jobCardService.addPart(jobCardId, name, qty, price)
         );
-
-        return ResponseEntity.ok(part);
     }
 
-    // ================= APPROVE =================
+    // =========================================================
+    // START WORK
+    // =========================================================
     @PutMapping("/{jobCardId}/approve")
-    @PreAuthorize("hasAnyAuthority('OWNER','ADMIN')")
-    public ResponseEntity<JobCard> approve(
-            @PathVariable Long jobCardId,
-            @AuthenticationPrincipal UserDetails user
+    @PreAuthorize("hasAuthority('MECHANIC')")
+    public ResponseEntity<JobCard> startWork(
+            @PathVariable Long jobCardId
     ) {
-        JobCard card = jobCardService.approveJob(jobCardId);
-
-        auditService.log(
-                AuditModule.JOB_CARD_MANAGEMENT,
-                null,
-                user.getUsername(),
-                "OWNER",
-                "JOB_APPROVED",
-                "JOB_CARD",
-                jobCardId,
-                "WAITING_APPROVAL",
-                "WORKING"
+        return ResponseEntity.ok(
+                jobCardService.approveJob(jobCardId)
         );
-
-        return ResponseEntity.ok(card);
     }
 
-    // ================= CLOSE =================
+    // =========================================================
+    // CLOSE JOB
+    // =========================================================
     @PutMapping("/{jobCardId}/close")
-    @PreAuthorize("hasAnyAuthority('OWNER','ADMIN')")
-    public ResponseEntity<JobCard> close(
-            @PathVariable Long jobCardId,
-            @AuthenticationPrincipal UserDetails user
+    @PreAuthorize("hasAuthority('MECHANIC')")
+    public ResponseEntity<JobCard> closeJob(
+            @PathVariable Long jobCardId
     ) {
-        JobCard card = jobCardService.closeJob(jobCardId);
-
-        auditService.log(
-                AuditModule.JOB_CARD_MANAGEMENT,
-                null,
-                user.getUsername(),
-                "OWNER",
-                "JOB_CLOSED",
-                "JOB_CARD",
-                jobCardId,
-                "WORKING",
-                "CLOSED"
+        return ResponseEntity.ok(
+                jobCardService.closeJob(jobCardId)
         );
-
-        return ResponseEntity.ok(card);
     }
 }

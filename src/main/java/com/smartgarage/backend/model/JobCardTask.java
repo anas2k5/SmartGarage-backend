@@ -1,5 +1,6 @@
 package com.smartgarage.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -16,8 +17,10 @@ public class JobCardTask {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // 🔥 BREAK LOOP
     @ManyToOne
     @JoinColumn(name = "job_card_id")
+    @JsonIgnore
     private JobCard jobCard;
 
     @Column(nullable = false)
