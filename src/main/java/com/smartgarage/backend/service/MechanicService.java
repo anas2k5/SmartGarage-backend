@@ -11,6 +11,18 @@ public interface MechanicService {
             Long requesterId,
             String requesterRole
     );
+    void deleteMechanic(
+            Long mechanicId,
+            Long requesterId,
+            String requesterRole
+    );
+    Mechanic updateMechanic(
+            Long id,
+            Mechanic updated,
+            Long actorId,
+            String role
+    );
+
 
     List<Mechanic> forGarage(Long garageId);
 

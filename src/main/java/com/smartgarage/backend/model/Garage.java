@@ -14,12 +14,13 @@ public class Garage {
     private Long id;
 
     private String name;
-
     private String address;
-
     private String phone;
-
     private boolean active = true;
+
+    // ✅ ADD THESE 2 FIELDS
+    private Double latitude;
+    private Double longitude;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
@@ -31,7 +32,8 @@ public class Garage {
 
     public Garage() {}
 
-    // getters & setters
+    // Getters & Setters
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -46,6 +48,13 @@ public class Garage {
 
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+
+    // ✅ NEW GETTERS/SETTERS
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
 
     public User getOwner() { return owner; }
     public void setOwner(User owner) { this.owner = owner; }

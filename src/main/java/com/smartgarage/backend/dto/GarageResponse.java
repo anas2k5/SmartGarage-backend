@@ -4,7 +4,6 @@ import java.time.OffsetDateTime;
 
 /**
  * DTO returned to clients for garage data.
- * Notice it does NOT include owner sensitive data (only ownerId).
  */
 public class GarageResponse {
 
@@ -16,9 +15,23 @@ public class GarageResponse {
     private Long ownerId;
     private OffsetDateTime createdAt;
 
+    // ✅ NEW FIELDS (for maps + distance)
+    private Double latitude;
+    private Double longitude;
+
     public GarageResponse() {}
 
-    public GarageResponse(Long id, String name, String address, String phone, boolean active, Long ownerId, OffsetDateTime createdAt) {
+    public GarageResponse(
+            Long id,
+            String name,
+            String address,
+            String phone,
+            boolean active,
+            Long ownerId,
+            OffsetDateTime createdAt,
+            Double latitude,
+            Double longitude
+    ) {
         this.id = id;
         this.name = name;
         this.address = address;
@@ -26,9 +39,12 @@ public class GarageResponse {
         this.active = active;
         this.ownerId = ownerId;
         this.createdAt = createdAt;
+        this.latitude = latitude;
+        this.longitude = longitude;
     }
 
-    // getters & setters
+    // ===== GETTERS / SETTERS =====
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -49,4 +65,12 @@ public class GarageResponse {
 
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+
+    // ✅ NEW GETTERS / SETTERS
+
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
 }

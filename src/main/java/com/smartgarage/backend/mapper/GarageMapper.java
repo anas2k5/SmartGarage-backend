@@ -5,16 +5,11 @@ import com.smartgarage.backend.dto.GarageResponse;
 import com.smartgarage.backend.model.Garage;
 import com.smartgarage.backend.model.User;
 
-/**
- * Simple, explicit mapper methods to convert between Garage entity and DTOs.
- * No Lombok, no external mapper libs — copy/paste friendly.
- */
 public class GarageMapper {
 
-    private GarageMapper() {
-        // utility class
-    }
+    private GarageMapper() {}
 
+    // ===== ENTITY =====
     public static Garage toEntity(GarageRequest req, User owner) {
         Garage g = new Garage();
         g.setName(req.getName());
@@ -22,15 +17,23 @@ public class GarageMapper {
         g.setPhone(req.getPhone());
         g.setOwner(owner);
         g.setActive(true);
+
+        // ✅ ADD COORDS
+        g.setLatitude(req.getLatitude());
+        g.setLongitude(req.getLongitude());
+
         return g;
     }
 
+    // ===== DTO =====
     public static GarageResponse toDto(Garage g) {
         if (g == null) return null;
+
         Long ownerId = null;
         if (g.getOwner() != null) {
             ownerId = g.getOwner().getId();
         }
+
         return new GarageResponse(
                 g.getId(),
                 g.getName(),
@@ -38,14 +41,27 @@ public class GarageMapper {
                 g.getPhone(),
                 g.isActive(),
                 ownerId,
-                g.getCreatedAt()
+                g.getCreatedAt(),
+
+                // ✅ SEND COORDS TO FRONTEND
+                g.getLatitude(),
+                g.getLongitude()
         );
     }
 
+    // ===== UPDATE =====
     public static void updateFromRequest(Garage g, GarageRequest req) {
         if (req == null || g == null) return;
+
         if (req.getName() != null) g.setName(req.getName());
         if (req.getAddress() != null) g.setAddress(req.getAddress());
         if (req.getPhone() != null) g.setPhone(req.getPhone());
+
+        // ✅ UPDATE COORDS
+        if (req.getLatitude() != null)
+            g.setLatitude(req.getLatitude());
+
+        if (req.getLongitude() != null)
+            g.setLongitude(req.getLongitude());
     }
 }

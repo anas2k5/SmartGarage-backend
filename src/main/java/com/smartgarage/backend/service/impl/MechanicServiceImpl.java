@@ -130,4 +130,59 @@ public class MechanicServiceImpl implements MechanicService {
     public Optional<Mechanic> findByUserId(Long userId) {
         return mechanicRepository.findByUserId(userId);
     }
+    @Override
+    public void deleteMechanic(
+            Long mechanicId,
+            Long requesterId,
+            String requesterRole
+    ) {
+        Mechanic mechanic = mechanicRepository.findById(mechanicId)
+                .orElseThrow(() -> new RuntimeException("Mechanic not found"));
+
+        // OWNER can delete only their garage mechanics
+        if ("OWNER".equals(requesterRole)) {
+            if (!mechanic.getGarage().getOwner().getId()
+                    .equals(requesterId)) {
+                throw new IllegalArgumentException(
+                        "Not your mechanic");
+            }
+        }
+
+        mechanicRepository.delete(mechanic);
+    }
+    @Override
+    @Transactional
+    public Mechanic updateMechanic(
+            Long id,
+            Mechanic updated,
+            Long actorId,
+            String role
+    ) {
+
+        Mechanic mechanic =
+                mechanicRepository.findById(id)
+                        .orElseThrow(() ->
+                                new IllegalArgumentException("Mechanic not found"));
+
+        // OWNER safety → only update own garage mechanic
+        if (role.equals("OWNER")) {
+
+            Long ownerId =
+                    mechanic.getGarage()
+                            .getOwner()
+                            .getId();
+
+            if (!ownerId.equals(actorId)) {
+                throw new IllegalArgumentException(
+                        "You cannot edit this mechanic");
+            }
+        }
+
+        // ===== UPDATE FIELDS =====
+        mechanic.setName(updated.getName());
+        mechanic.setPhone(updated.getPhone());
+
+        return mechanicRepository.save(mechanic);
+    }
+
 }

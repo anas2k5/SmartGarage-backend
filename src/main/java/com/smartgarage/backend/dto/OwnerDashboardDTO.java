@@ -19,6 +19,8 @@ public class OwnerDashboardDTO {
     private long completedBookings;
     private long cancelledBookings;
 
+    private Long totalMechanics;
+
     private Double totalRevenue;
     private long activeGarages;
 

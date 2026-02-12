@@ -14,4 +14,5 @@ public interface MechanicRepository extends JpaRepository<Mechanic, Long> {
     Optional<Mechanic> findByUserEmail(String email);
     Optional<Mechanic> findByUserId(Long userId);
 
+    long countByGarageOwnerId(Long ownerId);
 }

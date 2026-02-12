@@ -100,4 +100,79 @@ public class MechanicController {
 
         return ResponseEntity.ok(mechanic.get());
     }
+    // ================= DELETE MECHANIC =================
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('OWNER','ADMIN')")
+    public ResponseEntity<?> deleteMechanic(
+            @PathVariable Long id,
+            Principal principal
+    ) {
+        if (principal == null || principal.getName() == null) {
+            return ResponseEntity.status(401).body("Unauthenticated");
+        }
+
+        Optional<User> maybeUser =
+                userRepository.findByEmail(principal.getName());
+
+        if (maybeUser.isEmpty()) {
+            return ResponseEntity.status(401).body("User not found");
+        }
+
+        try {
+            mechanicService.deleteMechanic(
+                    id,
+                    maybeUser.get().getId(),
+                    maybeUser.get().getRole()
+            );
+
+            return ResponseEntity.ok("Mechanic deleted");
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity
+                    .status(500)
+                    .body("Delete failed: " + e.getMessage());
+        }
+    }
+    // ================= UPDATE MECHANIC =================
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('OWNER','ADMIN')")
+    public ResponseEntity<?> updateMechanic(
+            @PathVariable Long id,
+            @RequestBody Mechanic updated,
+            Principal principal
+    ) {
+
+        if (principal == null || principal.getName() == null) {
+            return ResponseEntity.status(401).body("Unauthenticated");
+        }
+
+        Optional<User> maybeUser =
+                userRepository.findByEmail(principal.getName());
+
+        if (maybeUser.isEmpty()) {
+            return ResponseEntity.status(401).body("User not found");
+        }
+
+        try {
+            Mechanic saved =
+                    mechanicService.updateMechanic(
+                            id,
+                            updated,
+                            maybeUser.get().getId(),
+                            maybeUser.get().getRole()
+                    );
+
+            return ResponseEntity.ok(saved);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity
+                    .status(500)
+                    .body("Update failed: " + e.getMessage());
+        }
+    }
+
 }

@@ -1,4 +1,5 @@
-package com.smartgarage.backend.service.impl;
+
+        package com.smartgarage.backend.service.impl;
 
 import com.smartgarage.backend.dto.*;
 import com.smartgarage.backend.exception.ResourceNotFoundException;
@@ -21,6 +22,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
     private final GarageRepository garageRepository;
+    private final MechanicRepository mechanicRepository; // 🔥 ADDED
 
     // ================= CUSTOMER =================
 
@@ -79,27 +81,6 @@ public class DashboardServiceImpl implements DashboardService {
                 .build();
     }
 
-    private CustomerBookingSummaryDTO toCustomerSummary(
-            Booking booking
-    ) {
-        return CustomerBookingSummaryDTO.builder()
-                .bookingId(booking.getId())
-                .garageName(
-                        booking.getGarage() != null
-                                ? booking.getGarage().getName()
-                                : null
-                )
-                .serviceType(
-                        booking.getService() != null
-                                ? booking.getService().getName()
-                                : null
-                )
-                .status(booking.getStatus())
-                .bookingTime(booking.getBookingTime())
-                .finalCost(booking.getFinalCost())
-                .build();
-    }
-
     // ================= OWNER =================
 
     @Override
@@ -134,6 +115,10 @@ public class DashboardServiceImpl implements DashboardService {
                         .filter(Objects::nonNull)
                         .collect(Collectors.toSet());
 
+        // 🔥 MECHANIC COUNT ADDED
+        long totalMechanics =
+                mechanicRepository.countByGarageOwnerId(ownerId);
+
         Double totalRevenue = paymentRepository
                 .findByBookingGarageOwnerIdAndStatus(
                         ownerId,
@@ -145,7 +130,6 @@ public class DashboardServiceImpl implements DashboardService {
                 .mapToDouble(Double::doubleValue)
                 .sum();
 
-        // 🔥 RECENT BOOKINGS (NULL SAFE)
         List<OwnerBookingSummaryDTO> recentBookings =
                 bookings.stream()
                         .sorted(Comparator.comparing(
@@ -155,7 +139,6 @@ public class DashboardServiceImpl implements DashboardService {
                         .map(this::safeOwnerSummary)
                         .toList();
 
-        // 💳 REAL RECENT PAYMENTS
         List<OwnerPaymentSummaryDTO> recentPayments =
                 paymentRepository
                         .findTop5ByBookingGarageOwnerIdAndStatusOrderByCompletedAtDesc(
@@ -176,12 +159,13 @@ public class DashboardServiceImpl implements DashboardService {
                 .cancelledBookings(cancelled)
                 .totalRevenue(totalRevenue)
                 .activeGarages(garageIds.size())
+                .totalMechanics(totalMechanics) // 🔥 ADDED
                 .recentBookings(recentBookings)
                 .recentPayments(recentPayments)
                 .build();
     }
 
-    // ================= ADMIN (⚡ OPTIMIZED & SAFE) =================
+    // ================= ADMIN (RESTORED) =================
 
     @Override
     public AdminDashboardDTO getAdminDashboard() {
@@ -199,10 +183,8 @@ public class DashboardServiceImpl implements DashboardService {
         long cancelled = bookingRepository.countByStatus(BookingStatus.CANCELLED);
         long paid = bookingRepository.countByStatus(BookingStatus.PAID);
 
-        // 💰 SOURCE OF TRUTH = PAYMENTS, NOT BOOKINGS
         Double totalRevenue = bookingRepository.getTotalRevenue();
 
-        // 🔥 RECENT BOOKINGS (LIMITED + NULL SAFE)
         List<OwnerBookingSummaryDTO> recentBookings =
                 bookingRepository.findAll()
                         .stream()
@@ -211,7 +193,6 @@ public class DashboardServiceImpl implements DashboardService {
                         .map(this::safeOwnerSummary)
                         .toList();
 
-        // 💳 REAL RECENT PAYMENTS
         List<OwnerPaymentSummaryDTO> recentPayments =
                 paymentRepository
                         .findTop5ByStatusOrderByCompletedAtDesc(PaymentStatus.SUCCESS)
@@ -310,4 +291,26 @@ public class DashboardServiceImpl implements DashboardService {
                 .paidAt(payment.getCompletedAt())
                 .build();
     }
+
+    private CustomerBookingSummaryDTO toCustomerSummary(
+            Booking booking
+    ) {
+        return CustomerBookingSummaryDTO.builder()
+                .bookingId(booking.getId())
+                .garageName(
+                        booking.getGarage() != null
+                                ? booking.getGarage().getName()
+                                : null
+                )
+                .serviceType(
+                        booking.getService() != null
+                                ? booking.getService().getName()
+                                : null
+                )
+                .status(booking.getStatus())
+                .bookingTime(booking.getBookingTime())
+                .finalCost(booking.getFinalCost())
+                .build();
+    }
+
 }
