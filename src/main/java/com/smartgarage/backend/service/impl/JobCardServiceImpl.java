@@ -4,6 +4,7 @@ import com.smartgarage.backend.exception.ResourceNotFoundException;
 import com.smartgarage.backend.model.*;
 import com.smartgarage.backend.repository.*;
 import com.smartgarage.backend.service.JobCardService;
+import com.smartgarage.backend.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,8 @@ public class JobCardServiceImpl implements JobCardService {
     private final BookingRepository bookingRepository;
     private final JobCardTaskRepository taskRepository;
     private final JobCardPartRepository partRepository;
+    private final NotificationService notificationService;
+
 
     // ================= FETCH BY MECHANIC =================
     @Override
@@ -100,6 +103,12 @@ public class JobCardServiceImpl implements JobCardService {
         booking.setStatus(BookingStatus.IN_PROGRESS);
 
         bookingRepository.save(booking);
+        notificationService.create(
+                booking.getCustomer().getId(),
+                "Service Started",
+                "Work on your vehicle has begun.",
+                "JOB_CARD"
+        );
 
         return jobCardRepository.save(card);
     }
@@ -153,7 +162,12 @@ public class JobCardServiceImpl implements JobCardService {
         booking.setFinalCost(totalCost);
 
         bookingRepository.saveAndFlush(booking);
-
+        notificationService.create(
+                booking.getCustomer().getId(),
+                "Service Completed",
+                "Your vehicle service has been completed. Please review and pay.",
+                "JOB_CARD"
+        );
         return jobCardRepository.saveAndFlush(card);
     }
 

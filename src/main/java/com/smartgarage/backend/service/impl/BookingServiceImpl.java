@@ -8,6 +8,7 @@ import com.smartgarage.backend.repository.*;
 import com.smartgarage.backend.service.AuditService;
 import com.smartgarage.backend.service.BookingService;
 import com.smartgarage.backend.service.EmailService;
+import com.smartgarage.backend.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +32,8 @@ public class BookingServiceImpl implements BookingService {
     private final JobCardRepository jobCardRepository;   // ✅ ADDED
     private final EmailService emailService;
     private final AuditService auditService;
+    private final NotificationService notificationService;
+
 
     // -------------------------------------------------
     // STATUS RULES
@@ -94,7 +97,18 @@ public class BookingServiceImpl implements BookingService {
                 .details(req.getDetails())
                 .build();
 
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+// 🔔 NOTIFY OWNER
+        notificationService.create(
+                garage.getOwner().getId(),
+                "New Booking Received",
+                "A customer has placed a new service booking.",
+                "BOOKING"
+        );
+
+        return saved;
+
     }
 
     // -------------------------------------------------
@@ -150,6 +164,8 @@ public class BookingServiceImpl implements BookingService {
         BookingStatus old = booking.getStatus();
         booking.setStatus(BookingStatus.ACCEPTED);
         Booking saved = bookingRepository.save(booking);
+
+
 
         auditService.log(
                 AuditModule.BOOKING_MANAGEMENT,
@@ -243,6 +259,13 @@ public class BookingServiceImpl implements BookingService {
 
         Booking savedBooking =
                 bookingRepository.save(booking);
+        notificationService.create(
+                booking.getCustomer().getId(),
+                "Mechanic Assigned",
+                "A technician has been assigned to your vehicle.",
+                "BOOKING"
+        );
+
 
         // =================================================
         // 🔥 AUTO CREATE JOBCARD (MAIN FIX)
@@ -329,6 +352,49 @@ public class BookingServiceImpl implements BookingService {
         BookingStatus old = booking.getStatus();
         booking.setStatus(nextStatus);
         Booking saved = bookingRepository.save(booking);
+
+// ================= NOTIFICATIONS =================
+
+        if (nextStatus == BookingStatus.ACCEPTED) {
+
+            notificationService.create(
+                    booking.getCustomer().getId(),
+                    "Booking Accepted",
+                    "Your service request has been accepted.",
+                    "BOOKING"
+            );
+        }
+
+        if (nextStatus == BookingStatus.IN_PROGRESS) {
+
+            notificationService.create(
+                    booking.getCustomer().getId(),
+                    "Service Started",
+                    "Your vehicle service is now in progress.",
+                    "BOOKING"
+            );
+        }
+
+        if (nextStatus == BookingStatus.COMPLETED) {
+
+            notificationService.create(
+                    booking.getCustomer().getId(),
+                    "Service Completed",
+                    "Your service is completed. Please proceed to payment.",
+                    "BOOKING"
+            );
+        }
+
+        if (nextStatus == BookingStatus.CANCELLED) {
+
+            notificationService.create(
+                    booking.getCustomer().getId(),
+                    "Booking Cancelled",
+                    "Your booking has been cancelled.",
+                    "BOOKING"
+            );
+        }
+
 
         auditService.log(
                 AuditModule.BOOKING_MANAGEMENT,

@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import com.smartgarage.backend.service.NotificationService;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -31,6 +32,8 @@ public class StripeWebhookController {
     private final EmailService emailService;
     private final InvoicePdfService invoicePdfService;
     private final AuditService auditService;
+
+    private final NotificationService notificationService;
 
     @Value("${stripe.webhook.secret}")
     private String webhookSecret;
@@ -117,6 +120,16 @@ public class StripeWebhookController {
         payment.setStatus(PaymentStatus.SUCCESS);
         payment.setCompletedAt(LocalDateTime.now());
         paymentRepository.save(payment);
+// ----------------------------
+// IN-APP NOTIFICATION
+// ----------------------------
+        notificationService.create(
+                booking.getCustomer().getId(),
+                "Payment Successful 💳",
+                "Your payment for Booking #" + bookingId +
+                        " has been completed successfully. Invoice is ready.",
+                "PAYMENT"
+        );
 
         // 🔥 AUDIT
         auditService.log(

@@ -56,4 +56,5 @@ public interface BookingService {
             Long requesterId,
             String requesterRole
     );
+
 }
