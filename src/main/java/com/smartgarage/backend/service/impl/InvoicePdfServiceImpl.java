@@ -129,8 +129,6 @@ public class InvoicePdfServiceImpl implements InvoicePdfService {
             amountTable.setWidthPercentage(50);
             amountTable.setHorizontalAlignment(Element.ALIGN_RIGHT);
 
-            amountTable.addCell(makeCell("Estimated Cost:", bold));
-            amountTable.addCell(makeCell(booking.getEstimatedCost() != null ? "₹ " + booking.getEstimatedCost() : "-", normal));
 
             amountTable.addCell(makeCell("Final Amount:", bold));
             amountTable.addCell(makeCell("₹ " + invoice.getTotalAmount(), normal));
