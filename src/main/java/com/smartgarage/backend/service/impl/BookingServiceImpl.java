@@ -106,7 +106,13 @@ public class BookingServiceImpl implements BookingService {
                 "A customer has placed a new service booking.",
                 "BOOKING"
         );
-
+// ADMIN
+        notificationService.notifyAdmins(
+                "New Booking Created",
+                "New booking created for Garage: "
+                        + garage.getName(),
+                "BOOKING"
+        );
         return saved;
 
     }
@@ -263,6 +269,19 @@ public class BookingServiceImpl implements BookingService {
                 booking.getCustomer().getId(),
                 "Mechanic Assigned",
                 "A technician has been assigned to your vehicle.",
+                "BOOKING"
+        );
+        // 🔔 NOTIFY MECHANIC
+        notificationService.create(
+                mechanic.getUser().getId(),   // IMPORTANT
+                "New Job Assigned",
+                "You have been assigned a new service job.",
+                "JOB_CARD"
+        );
+// 🔔 NOTIFY ADMINS
+        notificationService.notifyAdmins(
+                "Mechanic Assigned",
+                "A mechanic has been assigned to Booking #" + bookingId,
                 "BOOKING"
         );
 

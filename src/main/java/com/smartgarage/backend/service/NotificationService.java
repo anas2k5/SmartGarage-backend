@@ -16,4 +16,13 @@ public interface NotificationService {
     List<Notification> getMyNotifications(Long userId);
 
     void markAsRead(Long id);
+
+    long getUnreadCount(Long userId);
+    void markAllAsRead(Long userId);
+    void notifyAdmins(
+            String title,
+            String message,
+            String type
+    );
+
 }

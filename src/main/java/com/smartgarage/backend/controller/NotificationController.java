@@ -49,4 +49,41 @@ public class NotificationController {
         service.markAsRead(id);
         return ResponseEntity.ok("Read");
     }
+    // ===== UNREAD COUNT =====
+    @GetMapping("/me/unread-count")
+    public ResponseEntity<?> unreadCount(
+            Principal principal
+    ) {
+        Optional<User> u = getUser(principal);
+
+        if (u.isEmpty())
+            return ResponseEntity.status(401)
+                    .body("Unauthenticated");
+
+        long count =
+                service.getUnreadCount(u.get().getId());
+
+        return ResponseEntity.ok(count);
+    }
+    // ===== MARK ALL AS READ =====
+    @PutMapping("/read-all")
+    public ResponseEntity<?> markAllRead(
+            Principal principal
+    ) {
+        Optional<User> u = getUser(principal);
+
+        if (u.isEmpty())
+            return ResponseEntity
+                    .status(401)
+                    .body("Unauthenticated");
+
+        service.markAllAsRead(
+                u.get().getId()
+        );
+
+        return ResponseEntity.ok("All read");
+    }
+
+
+
 }

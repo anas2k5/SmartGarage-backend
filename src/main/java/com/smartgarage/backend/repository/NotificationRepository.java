@@ -10,4 +10,9 @@ public interface NotificationRepository
 
     List<Notification>
     findByUserIdOrderByCreatedAtDesc(Long userId);
+    long countByUserIdAndReadStatusFalse(Long userId);
+
+    List<Notification>
+    findByUserIdAndReadStatusFalse(Long userId);
+
 }
