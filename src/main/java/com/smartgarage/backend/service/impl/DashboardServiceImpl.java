@@ -29,8 +29,10 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     public CustomerDashboardDTO getCustomerDashboard(Long customerId) {
 
-        userRepository.findById(customerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+        User customer = userRepository.findById(customerId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Customer not found"));
+
 
         List<Booking> bookings =
                 bookingRepository.findByCustomerId(customerId);
@@ -71,6 +73,8 @@ public class DashboardServiceImpl implements DashboardService {
 
         return CustomerDashboardDTO.builder()
                 .customerId(customerId)
+                // ✅ ADD THIS
+                .customerName(customer.getFullName())
                 .totalBookings(total)
                 .completedBookings(completed)
                 .ongoingBookings(ongoing)
@@ -86,8 +90,9 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     public OwnerDashboardDTO getOwnerDashboard(Long ownerId) {
 
-        userRepository.findById(ownerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
+        User owner = userRepository.findById(ownerId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Owner not found"));
 
         List<Booking> bookings =
                 bookingRepository.findByGarage_Owner_Id(ownerId);
@@ -151,6 +156,7 @@ public class DashboardServiceImpl implements DashboardService {
 
         return OwnerDashboardDTO.builder()
                 .ownerId(ownerId)
+                .ownerName(owner.getFullName())
                 .totalBookings(total)
                 .pendingBookings(pending)
                 .inProgressBookings(inProgress)

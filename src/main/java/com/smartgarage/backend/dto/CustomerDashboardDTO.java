@@ -12,7 +12,7 @@ import java.util.List;
 public class CustomerDashboardDTO {
 
     private Long customerId;
-
+    private String customerName;
     private long totalBookings;
     private long completedBookings;
     private long ongoingBookings;   // e.g. IN_PROGRESS

@@ -18,6 +18,7 @@ public class OwnerDashboardDTO {
     private long acceptedBookings;
     private long completedBookings;
     private long cancelledBookings;
+    private String ownerName;
 
     private Long totalMechanics;
 
