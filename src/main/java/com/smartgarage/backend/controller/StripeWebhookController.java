@@ -123,11 +123,30 @@ public class StripeWebhookController {
 // ----------------------------
 // IN-APP NOTIFICATION
 // ----------------------------
+        // ----------------------------
+// IN-APP NOTIFICATIONS
+// ----------------------------
+
+// 1️⃣ CUSTOMER NOTIFICATION
         notificationService.create(
                 booking.getCustomer().getId(),
                 "Payment Successful 💳",
                 "Your payment for Booking #" + bookingId +
                         " has been completed successfully. Invoice is ready.",
+                "PAYMENT"
+        );
+
+// 2️⃣ OWNER NOTIFICATION (NEW)
+        Long ownerId =
+                booking.getGarage()
+                        .getOwner()
+                        .getId();
+
+        notificationService.create(
+                ownerId,
+                "Payment Received 💰",
+                "Customer has completed payment for Booking #" + bookingId +
+                        ". Service is now fully closed.",
                 "PAYMENT"
         );
 

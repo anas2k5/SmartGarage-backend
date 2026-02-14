@@ -1,11 +1,11 @@
 package com.smartgarage.backend.controller;
 
-import com.smartgarage.backend.model.Invoice;
-import com.smartgarage.backend.repository.InvoiceRepository;
+import com.smartgarage.backend.model.*;
+import com.smartgarage.backend.repository.*;
 import com.smartgarage.backend.service.InvoicePdfService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -14,33 +14,47 @@ import org.springframework.web.bind.annotation.*;
 public class InvoiceController {
 
     private final InvoiceRepository invoiceRepository;
+    private final BookingRepository bookingRepository;
     private final InvoicePdfService invoicePdfService;
-
-    // ================= GET INVOICE (JSON) =================
-    @GetMapping("/{bookingId}")
-    @PreAuthorize("hasAnyRole('CUSTOMER','OWNER','ADMIN')")
-    public ResponseEntity<?> getInvoice(
-            @PathVariable Long bookingId
-    ) {
-
-        Invoice invoice = invoiceRepository
-                .findByBookingId(bookingId)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Invoice not found for booking " + bookingId
-                        )
-                );
-
-        return ResponseEntity.ok(invoice);
-    }
 
     // ================= DOWNLOAD PDF =================
     @GetMapping("/{bookingId}/pdf")
-    @PreAuthorize("hasAnyRole('CUSTOMER','OWNER','ADMIN')")
     public ResponseEntity<byte[]> downloadInvoicePdf(
-            @PathVariable Long bookingId
+            @PathVariable Long bookingId,
+            Authentication authentication
     ) {
 
+        // 🔍 Get logged user email
+        String email = authentication.getName();
+
+        // 🔍 Load booking
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() ->
+                        new RuntimeException("Booking not found"));
+
+        // 🔐 ROLE-BASED ACCESS CHECK
+
+        boolean isCustomer =
+                booking.getCustomer() != null &&
+                        booking.getCustomer().getEmail().equals(email);
+
+        boolean isOwner =
+                booking.getGarage() != null &&
+                        booking.getGarage().getOwner() != null &&
+                        booking.getGarage().getOwner().getEmail().equals(email);
+
+        boolean isAdmin =
+                authentication.getAuthorities()
+                        .stream()
+                        .anyMatch(a ->
+                                a.getAuthority()
+                                        .equals("ROLE_ADMIN"));
+
+        if (!isCustomer && !isOwner && !isAdmin) {
+            throw new RuntimeException("Access Denied");
+        }
+
+        // ✅ Generate PDF
         byte[] pdfBytes =
                 invoicePdfService.generateInvoicePdf(bookingId);
 

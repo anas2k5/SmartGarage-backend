@@ -7,7 +7,6 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.List;
-
 @Entity
 @Table(name = "job_cards")
 @Getter
@@ -26,14 +25,12 @@ public class JobCard {
     private Long id;
 
     // ================= BOOKING =================
-    @OneToOne
+    @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "booking_id", nullable = false, unique = true)
     @JsonIgnoreProperties({
-            "garage",
-            "customer",
-            "vehicle",
-            "service"
-    }) // ✅ mechanic removed from ignore
+            "hibernateLazyInitializer",
+            "handler"
+    })
     private Booking booking;
 
     // ================= MECHANIC =================
@@ -53,7 +50,7 @@ public class JobCard {
     // ================= COST =================
     private Double laborCost;
     private Double partsCost;
-    private Double totalCost; // ✅ ADDED
+    private Double totalCost;
 
     @Column(length = 2000)
     private String notes;
