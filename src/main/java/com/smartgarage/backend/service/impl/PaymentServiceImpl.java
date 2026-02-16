@@ -60,10 +60,21 @@ public class PaymentServiceImpl implements PaymentService {
             // ================= STRIPE =================
             PaymentIntentCreateParams params =
                     PaymentIntentCreateParams.builder()
-                            .setAmount((long) (request.getAmount() * 100)) // INR in paise
+                            .setAmount((long) (request.getAmount() * 100))
                             .setCurrency("inr")
                             .putMetadata("bookingId", bookingId.toString())
+
+                            // 🔥 REQUIRED FOR PAYMENT SHEET (PRODUCTION FIX)
+                            .setAutomaticPaymentMethods(
+                                    PaymentIntentCreateParams
+                                            .AutomaticPaymentMethods
+                                            .builder()
+                                            .setEnabled(true)
+                                            .build()
+                            )
+
                             .build();
+
 
             PaymentIntent intent =
                     PaymentIntent.create(params);
