@@ -196,7 +196,14 @@ public class StripeWebhookController {
                     pdf,
                     "invoice-" + bookingId + ".pdf"
             );
-        } catch (Exception ignored) {
+
+            System.out.println("INVOICE MAIL SENT");
+
+        } catch (Exception e) {
+            System.out.println("INVOICE MAIL FAILED");
+            e.printStackTrace();
         }
+
+
     }
 }

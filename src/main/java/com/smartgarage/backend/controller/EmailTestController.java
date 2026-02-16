@@ -15,7 +15,7 @@ public class EmailTestController {
     // GET /api/test-email
     @GetMapping
     public ResponseEntity<String> sendTestEmail() {
-        String to = "tuternity@gmail.com";   // your email
+        String to = "anassyed236@gmail.com";   // your email
         String subject = "SmartGarage Test Email";
         String text = "Hi, this is a test email from SmartGarage backend.";
 
