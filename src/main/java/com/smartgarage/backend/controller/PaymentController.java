@@ -99,4 +99,13 @@ public class PaymentController {
                 )
                 .body(pdf);
     }
+    @PostMapping("/confirm/{bookingId}")
+    public ResponseEntity<PaymentResponseDTO> confirmPayment(
+            @PathVariable Long bookingId
+    ) {
+        return ResponseEntity.ok(
+                paymentService.confirmPayment(bookingId)
+        );
+    }
+
 }

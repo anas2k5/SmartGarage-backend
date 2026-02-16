@@ -11,7 +11,10 @@ import com.stripe.param.PaymentIntentCreateParams;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.smartgarage.backend.service.InvoicePdfService;
+import com.smartgarage.backend.service.EmailService;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -21,7 +24,10 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final BookingRepository bookingRepository;
     private final PaymentRepository paymentRepository;
+    private final InvoiceRepository invoiceRepository;
 
+    private final InvoicePdfService invoicePdfService;
+    private final EmailService emailService;
 
     // ================= INITIATE PAYMENT =================
     @Override
@@ -108,6 +114,75 @@ public class PaymentServiceImpl implements PaymentService {
                 .stream()
                 .map(p -> toDto(p, null))
                 .toList();
+    }
+    @Override
+    @Transactional
+    public PaymentResponseDTO confirmPayment(Long bookingId) {
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        Payment payment = paymentRepository.findByBooking(booking)
+                .orElseThrow(() -> new RuntimeException("Payment not found"));
+
+        if (payment.getStatus() == PaymentStatus.SUCCESS) {
+            return toDto(payment, null);
+        }
+
+        // 1️⃣ Update payment
+        payment.setStatus(PaymentStatus.SUCCESS);
+        payment.setCompletedAt(LocalDateTime.now());
+        paymentRepository.save(payment);
+
+        // 2️⃣ Update booking
+        booking.setPaymentStatus(PaymentStatus.SUCCESS);
+
+// DO NOT change service status
+// booking.setStatus(BookingStatus.PAID); ❌ remove
+
+        bookingRepository.save(booking);
+
+
+        // 3️⃣ Create invoice (if not exists)
+        if (invoiceRepository.findByBooking(booking).isEmpty()) {
+
+            Invoice invoice = Invoice.builder()
+                    .booking(booking)
+                    .payment(payment)
+                    .invoiceNumber("INV-" + bookingId)
+                    .invoiceDate(LocalDateTime.now())
+                    .totalAmount(payment.getAmount())
+                    .build();
+
+            invoiceRepository.save(invoice);
+        }
+
+        // 4️⃣ Generate PDF + Email
+        try {
+
+            byte[] pdf =
+                    invoicePdfService.generateInvoicePdf(bookingId);
+
+            emailService.sendMailWithAttachment(
+                    booking.getCustomer().getEmail(),
+                    "Smart Garage Invoice #" + bookingId,
+                    "Dear Customer,\n\n" +
+                            "Thank you for your payment.\n" +
+                            "Please find attached your invoice.\n\n" +
+                            "Smart Garage Team",
+                    pdf,
+                    "invoice-" + bookingId + ".pdf"
+            );
+
+        } catch (Exception e) {
+
+            System.out.println(
+                    "Email failed but payment success: "
+                            + e.getMessage()
+            );
+        }
+
+        return toDto(payment, null);
     }
 
     // ================= HELPER =================

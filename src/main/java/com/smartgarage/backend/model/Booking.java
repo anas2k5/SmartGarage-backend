@@ -48,4 +48,8 @@ public class Booking {
 
     private Double estimatedCost;
     private Double finalCost;
+
+    @Enumerated(EnumType.STRING)
+    private PaymentStatus paymentStatus;
+
 }

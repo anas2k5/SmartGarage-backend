@@ -22,4 +22,6 @@ public interface PaymentService {
     List<PaymentResponseDTO> getPaymentsByCustomer(
             Long customerId
     );
+    PaymentResponseDTO confirmPayment(Long bookingId);
+
 }
