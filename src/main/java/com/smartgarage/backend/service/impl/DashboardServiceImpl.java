@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class DashboardServiceImpl implements DashboardService {
+    private final VehicleRepository vehicleRepository;
 
     private final BookingRepository bookingRepository;
     private final PaymentRepository paymentRepository;
@@ -70,8 +71,12 @@ public class DashboardServiceImpl implements DashboardService {
                         .limit(5)
                         .map(this::toCustomerSummary)
                         .toList();
+        Vehicle primaryVehicle = vehicleRepository
+                .findFirstByOwnerId(customerId)
+                .orElse(null);
 
         return CustomerDashboardDTO.builder()
+                .primaryVehicle(toVehicleDTO(primaryVehicle))
                 .customerId(customerId)
                 // ✅ ADD THIS
                 .customerName(customer.getFullName())
@@ -82,6 +87,17 @@ public class DashboardServiceImpl implements DashboardService {
                 .cancelledBookings(cancelled)
                 .totalSpent(totalSpent)
                 .latestBookings(latestBookings)
+                .build();
+    }
+
+    private VehicleDTO toVehicleDTO(Vehicle v) {
+        if (v == null) return null;
+
+        return VehicleDTO.builder()
+                .id(v.getId())
+                .make(v.getMake())
+                .model(v.getModel())
+                .registrationNumber(v.getPlateNumber())
                 .build();
     }
 

@@ -1,7 +1,6 @@
 package com.smartgarage.backend.dto;
 
 import lombok.*;
-
 import java.util.List;
 
 @Getter
@@ -13,13 +12,17 @@ public class CustomerDashboardDTO {
 
     private Long customerId;
     private String customerName;
+
+    // 🔥 ADD THIS
+    private VehicleDTO primaryVehicle;
+
     private long totalBookings;
     private long completedBookings;
-    private long ongoingBookings;   // e.g. IN_PROGRESS
-    private long pendingBookings;   // PENDING
+    private long ongoingBookings;
+    private long pendingBookings;
     private long cancelledBookings;
 
-    private Double totalSpent;      // sum of successful payments
+    private Double totalSpent;
 
     private List<CustomerBookingSummaryDTO> latestBookings;
 }
