@@ -120,6 +120,11 @@ public class StripeWebhookController {
         payment.setStatus(PaymentStatus.SUCCESS);
         payment.setCompletedAt(LocalDateTime.now());
         paymentRepository.save(payment);
+        // ----------------------------
+// UPDATE BOOKING PAYMENT STATUS
+// ----------------------------
+        booking.setPaymentStatus(PaymentStatus.SUCCESS);
+        bookingRepository.save(booking);
 // ----------------------------
 // IN-APP NOTIFICATION
 // ----------------------------

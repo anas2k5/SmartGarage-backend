@@ -127,7 +127,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .toList();
     }
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public PaymentResponseDTO confirmPayment(Long bookingId) {
 
         Booking booking = bookingRepository.findById(bookingId)
@@ -136,66 +136,11 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = paymentRepository.findByBooking(booking)
                 .orElseThrow(() -> new RuntimeException("Payment not found"));
 
-        if (payment.getStatus() == PaymentStatus.SUCCESS) {
-            return toDto(payment, null);
-        }
-
-        // 1️⃣ Update payment
-        payment.setStatus(PaymentStatus.SUCCESS);
-        payment.setCompletedAt(LocalDateTime.now());
-        paymentRepository.save(payment);
-
-        // 2️⃣ Update booking
-        booking.setPaymentStatus(PaymentStatus.SUCCESS);
-
-// DO NOT change service status
-// booking.setStatus(BookingStatus.PAID); ❌ remove
-
-        bookingRepository.save(booking);
-
-
-        // 3️⃣ Create invoice (if not exists)
-        if (invoiceRepository.findByBooking(booking).isEmpty()) {
-
-            Invoice invoice = Invoice.builder()
-                    .booking(booking)
-                    .payment(payment)
-                    .invoiceNumber("INV-" + bookingId)
-                    .invoiceDate(LocalDateTime.now())
-                    .totalAmount(payment.getAmount())
-                    .build();
-
-            invoiceRepository.save(invoice);
-        }
-
-        // 4️⃣ Generate PDF + Email
-        try {
-
-            byte[] pdf =
-                    invoicePdfService.generateInvoicePdf(bookingId);
-
-            emailService.sendMailWithAttachment(
-                    booking.getCustomer().getEmail(),
-                    "Smart Garage Invoice #" + bookingId,
-                    "Dear Customer,\n\n" +
-                            "Thank you for your payment.\n" +
-                            "Please find attached your invoice.\n\n" +
-                            "Smart Garage Team",
-                    pdf,
-                    "invoice-" + bookingId + ".pdf"
-            );
-
-        } catch (Exception e) {
-
-            System.out.println(
-                    "Email failed but payment success: "
-                            + e.getMessage()
-            );
-        }
+        // Do NOT update status here.
+        // Stripe webhook is the only authority for SUCCESS.
 
         return toDto(payment, null);
     }
-
     // ================= HELPER =================
     private PaymentResponseDTO toDto(Payment p, String clientSecret) {
         return PaymentResponseDTO.builder()
