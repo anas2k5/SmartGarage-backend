@@ -3,7 +3,9 @@ package com.smartgarage.backend.service;
 import com.smartgarage.backend.dto.BookingRequest;
 import com.smartgarage.backend.model.Booking;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public interface BookingService {
@@ -43,6 +45,7 @@ public interface BookingService {
             String requesterRole
     );
 
+
     Booking updateEstimatedCost(
             Long bookingId,
             Double estimatedCost,
@@ -56,5 +59,5 @@ public interface BookingService {
             Long requesterId,
             String requesterRole
     );
-
+    Map<String, Long> getBookedSlots(Long garageId, LocalDate localDate);
 }

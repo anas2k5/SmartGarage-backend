@@ -12,6 +12,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -223,5 +224,14 @@ public class BookingController {
 
         return ResponseEntity.ok(BookingMapper.toResponse(updated));
     }
-
+    @GetMapping("/garage/{garageId}/slots")
+    public ResponseEntity<?> getSlotAvailability(
+            @PathVariable Long garageId,
+            @RequestParam String date
+    ) {
+        LocalDate localDate = LocalDate.parse(date);
+        return ResponseEntity.ok(
+                bookingService.getBookedSlots(garageId, localDate)
+        );
+    }
 }

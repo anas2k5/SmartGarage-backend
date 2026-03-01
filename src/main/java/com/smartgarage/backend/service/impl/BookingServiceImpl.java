@@ -12,13 +12,11 @@ import com.smartgarage.backend.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
 import java.time.LocalDateTime;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-
+import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -34,7 +32,8 @@ public class BookingServiceImpl implements BookingService {
     private final AuditService auditService;
     private final NotificationService notificationService;
 
-
+    private static final Set<Integer> ALLOWED_HOURS =
+            Set.of(9, 11, 13, 15, 17);
     // -------------------------------------------------
     // STATUS RULES
     // -------------------------------------------------
@@ -59,7 +58,23 @@ public class BookingServiceImpl implements BookingService {
             case PAID, CANCELLED -> false;
         };
     }
+    @Override
+    public Map<String, Long> getBookedSlots(Long garageId, LocalDate date){
 
+        List<Booking> bookings = bookingRepository
+                .findByGarageIdAndBookingTimeBetween(
+                        garageId,
+                        date.atStartOfDay(),
+                        date.plusDays(1).atStartOfDay()
+                );
+
+        return bookings.stream()
+                .filter(b -> b.getStatus() != BookingStatus.CANCELLED)
+                .collect(Collectors.groupingBy(
+                        b -> String.format("%02d:00", b.getBookingTime().getHour()),
+                        Collectors.counting()
+                ));
+    }
     // -------------------------------------------------
     // CREATE BOOKING
     // -------------------------------------------------
@@ -76,15 +91,37 @@ public class BookingServiceImpl implements BookingService {
             throw new ForbiddenException("Vehicle does not belong to customer");
         }
 
-        if (!req.getBookingTime().isAfter(LocalDateTime.now())) {
+        LocalDateTime requestedTime = req.getBookingTime();
+
+        if (!requestedTime.isAfter(LocalDateTime.now())) {
             throw new IllegalArgumentException("Booking time must be in the future");
         }
 
+// ⏰ SLOT VALIDATION
+        if (!ALLOWED_HOURS.contains(requestedTime.getHour())
+                || requestedTime.getMinute() != 0) {
+            throw new IllegalArgumentException(
+                    "Invalid time slot. Allowed slots: 9, 11, 13, 15, 17 hours."
+            );
+        }
         GarageServiceEntity service = garageServiceRepository.findById(req.getServiceId())
                 .orElseThrow(() -> new ResourceNotFoundException("Service not found"));
 
         if (!service.getGarage().getId().equals(garage.getId())) {
             throw new IllegalArgumentException("Service does not belong to this garage");
+        }
+        // 🚫 Prevent duplicate slot for same garage
+        long bookingCount = bookingRepository
+                .countByGarageIdAndBookingTimeAndStatusNot(
+                        garage.getId(),
+                        requestedTime,
+                        BookingStatus.CANCELLED
+                );
+
+        if (bookingCount >= 3) {
+            throw new IllegalArgumentException(
+                    "Selected time slot is full (Max 3 bookings allowed)"
+            );
         }
 
         Booking booking = Booking.builder()

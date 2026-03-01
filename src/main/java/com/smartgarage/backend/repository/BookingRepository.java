@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
@@ -33,7 +35,30 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findFreshByCustomerId(
             @Param("customerId") Long customerId
     );
-
+    boolean existsByGarageIdAndBookingTime(
+            Long garageId,
+            LocalDateTime bookingTime
+    );
+    @Query("""
+    SELECT b FROM Booking b
+    WHERE b.garage.id = :garageId
+    AND DATE(b.bookingTime) = :date
+    AND b.status <> 'CANCELLED'
+""")
+    List<Booking> findBookingsByGarageAndDate(
+            Long garageId,
+            LocalDate date
+    );
+    List<Booking> findByGarageIdAndBookingTimeBetween(
+            Long garageId,
+            LocalDateTime start,
+            LocalDateTime end
+    );
+    long countByGarageIdAndBookingTimeAndStatusNot(
+            Long garageId,
+            LocalDateTime bookingTime,
+            BookingStatus status
+    );
     List<Booking> findByCustomerId(Long customerId);
 
     List<Booking> findByGarageId(Long garageId);
