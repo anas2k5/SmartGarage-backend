@@ -25,7 +25,6 @@ public class GarageMapper {
         return g;
     }
 
-    // ===== DTO =====
     public static GarageResponse toDto(Garage g) {
         if (g == null) return null;
 
@@ -42,13 +41,11 @@ public class GarageMapper {
                 g.isActive(),
                 ownerId,
                 g.getCreatedAt(),
-
-                // ✅ SEND COORDS TO FRONTEND
                 g.getLatitude(),
-                g.getLongitude()
+                g.getLongitude(),
+                g.getMaxBookingsPerSlot()   // ✅ ADD THIS
         );
     }
-
     // ===== UPDATE =====
     public static void updateFromRequest(Garage g, GarageRequest req) {
         if (req == null || g == null) return;
@@ -64,4 +61,6 @@ public class GarageMapper {
         if (req.getLongitude() != null)
             g.setLongitude(req.getLongitude());
     }
+
+
 }

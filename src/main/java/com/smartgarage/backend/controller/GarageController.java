@@ -2,6 +2,7 @@ package com.smartgarage.backend.controller;
 
 import com.smartgarage.backend.dto.GarageRequest;
 import com.smartgarage.backend.dto.GarageResponse;
+import com.smartgarage.backend.dto.UpdateSlotCapacityRequest;
 import com.smartgarage.backend.model.User;
 import com.smartgarage.backend.repository.UserRepository;
 import com.smartgarage.backend.service.GarageService;
@@ -92,5 +93,25 @@ public class GarageController {
         garageService.delete(id, owner.getId());
 
         return ResponseEntity.ok("Garage deleted successfully");
+    }
+    // ================= UPDATE SLOT CAPACITY =================
+    @PutMapping("/{id}/slot-capacity")
+    @PreAuthorize("hasAuthority('OWNER')")
+    public ResponseEntity<GarageResponse> updateSlotCapacity(
+            @PathVariable Long id,
+            @RequestBody UpdateSlotCapacityRequest req,
+            Principal principal
+    ) {
+        User owner = userRepository
+                .findByEmail(principal.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return ResponseEntity.ok(
+                garageService.updateSlotCapacity(
+                        id,
+                        owner.getId(),
+                        req.getMaxBookingsPerSlot()
+                )
+        );
     }
 }

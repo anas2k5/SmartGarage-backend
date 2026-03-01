@@ -12,7 +12,8 @@ public class Garage {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
+    @Column(name = "max_bookings_per_slot")
+    private Integer maxBookingsPerSlot = 3;
     private String name;
     private String address;
     private String phone;
@@ -61,4 +62,11 @@ public class Garage {
 
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+    public Integer getMaxBookingsPerSlot() {
+        return maxBookingsPerSlot;
+    }
+
+    public void setMaxBookingsPerSlot(Integer maxBookingsPerSlot) {
+        this.maxBookingsPerSlot = maxBookingsPerSlot;
+    }
 }

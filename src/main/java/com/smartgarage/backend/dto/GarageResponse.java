@@ -14,7 +14,7 @@ public class GarageResponse {
     private boolean active;
     private Long ownerId;
     private OffsetDateTime createdAt;
-
+    private Integer maxBookingsPerSlot;
     // ✅ NEW FIELDS (for maps + distance)
     private Double latitude;
     private Double longitude;
@@ -30,7 +30,8 @@ public class GarageResponse {
             Long ownerId,
             OffsetDateTime createdAt,
             Double latitude,
-            Double longitude
+            Double longitude,
+            Integer maxBookingsPerSlot
     ) {
         this.id = id;
         this.name = name;
@@ -41,6 +42,7 @@ public class GarageResponse {
         this.createdAt = createdAt;
         this.latitude = latitude;
         this.longitude = longitude;
+        this.maxBookingsPerSlot = maxBookingsPerSlot;
     }
 
     // ===== GETTERS / SETTERS =====
@@ -67,7 +69,13 @@ public class GarageResponse {
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 
     // ✅ NEW GETTERS / SETTERS
+    public Integer getMaxBookingsPerSlot() {
+        return maxBookingsPerSlot;
+    }
 
+    public void setMaxBookingsPerSlot(Integer maxBookingsPerSlot) {
+        this.maxBookingsPerSlot = maxBookingsPerSlot;
+    }
     public Double getLatitude() { return latitude; }
     public void setLatitude(Double latitude) { this.latitude = latitude; }
 

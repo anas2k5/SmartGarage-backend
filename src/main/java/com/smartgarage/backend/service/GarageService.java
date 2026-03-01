@@ -12,4 +12,9 @@ public interface GarageService {
     GarageResponse getById(Long id);
     GarageResponse update(Long id, Long ownerId, GarageRequest req);
     void delete(Long id, Long ownerId);
+    GarageResponse updateSlotCapacity(
+            Long garageId,
+            Long ownerId,
+            Integer maxBookingsPerSlot
+    );
 }

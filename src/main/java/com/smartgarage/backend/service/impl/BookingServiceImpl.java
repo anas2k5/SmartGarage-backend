@@ -118,9 +118,13 @@ public class BookingServiceImpl implements BookingService {
                         BookingStatus.CANCELLED
                 );
 
-        if (bookingCount >= 3) {
+        Integer maxCapacity = garage.getMaxBookingsPerSlot() != null
+                ? garage.getMaxBookingsPerSlot()
+                : 3;
+
+        if (bookingCount >= maxCapacity) {
             throw new IllegalArgumentException(
-                    "Selected time slot is full (Max 3 bookings allowed)"
+                    "Selected time slot is full (Max " + maxCapacity + " bookings allowed)"
             );
         }
 

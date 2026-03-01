@@ -76,4 +76,23 @@ public class GarageServiceImpl implements GarageService {
         }
         garageRepository.delete(g);
     }
+    @Override
+    public GarageResponse updateSlotCapacity(
+            Long garageId,
+            Long ownerId,
+            Integer maxBookingsPerSlot
+    ) {
+        Garage garage = garageRepository.findById(garageId)
+                .orElseThrow(() -> new RuntimeException("Garage not found"));
+
+        if (!garage.getOwner().getId().equals(ownerId)) {
+            throw new RuntimeException("Not authorized");
+        }
+
+        garage.setMaxBookingsPerSlot(maxBookingsPerSlot);
+
+        Garage saved = garageRepository.save(garage);
+
+        return GarageMapper.toDto(saved);
+    }
 }
